@@ -1,86 +1,1326 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
+<html>
+  <head>
+    <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IIUM Clinic (Vercel Edition)</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="teal">
+    <meta name="apple-mobile-web-app-title" content="IIUM HSC">
+    <link rel="apple-touch-icon" href="https://i.imgur.com/1J1vGjx.png">
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
     <style>
-        :root { --iium-gold: #c5a065; --iium-turquoise: #007a7e; }
-        body { background-color: #f4f6f9; font-size: 0.95rem; }
-        .bg-iium { background-color: var(--iium-turquoise); color: white; }
-        .btn-iium { background-color: var(--iium-gold); color: white; border: none; }
+      :root { --iium-gold: #c5a065; --iium-turquoise: #007a7e; }
+      body { background-color: #f4f6f9; font-size: 0.95rem; overflow-x: hidden; }
+      
+      /* IIUM Branding */
+      .bg-iium { background-color: var(--iium-turquoise); color: white; }
+      .text-iium { color: var(--iium-turquoise); }
+      .btn-iium { background-color: var(--iium-gold); color: white; border: none; }
+      .btn-iium:hover { background-color: #b08d55; color: white; }
+      
+      /* Navigation & Layout */
+      .sidebar { min-height: 100vh; background: var(--iium-turquoise); color: white; }
+      .nav-link { color: rgba(255,255,255,0.8); cursor: pointer; padding: 12px; }
+      .nav-link.active { background: rgba(255,255,255,0.2); font-weight: bold; color: white; border-left: 4px solid var(--iium-gold); }
+      .page-view { display: none; }
+      .page-view.active { display: block; animation: fadeIn 0.3s; }
+      
+      /* Form Styling */
+      .form-section { display: none; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+      .form-section.active { display: block; }
+      
+      /* Fix for Step Tabs Visibility */
+      .btn-group-steps .btn.active {
+          background-color: var(--iium-turquoise) !important;
+          color: white !important;
+          border-color: var(--iium-turquoise) !important;
+      }
+      .btn-group-steps .btn {
+          color: #495057;
+          background-color: #f8f9fa;
+      }
+
+      /* Pill Radio Buttons */
+      .btn-check:checked + .btn-outline-primary { background-color: var(--iium-turquoise) !important; border-color: var(--iium-turquoise) !important; color: white !important; }
+      .btn-check:checked + .btn-outline-success { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
+      .btn-check:checked + .btn-outline-danger { background-color: #dc3545 !important; border-color: #dc3545 !important; color: white !important; }
+      .bg-orange { background-color: #fd7e14 !important; color: white; }
+      
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+      /* Tab Styling */
+      #roomTabs .nav-link { color: var(--iium-turquoise) !important; background-color: #f8f9fa; border: 1px solid #dee2e6; }
+      #roomTabs .nav-link:hover { background-color: #e9ecef; color: #0056b3 !important; }
+      #roomTabs .nav-link.active { background-color: var(--iium-turquoise) !important; color: white !important; border-color: var(--iium-turquoise); }
+
+      /* Mobile Specific Fixes */
+      @media (max-width: 768px) {
+        .sidebar { display: none; } /* Hide sidebar on mobile */
+        .mobile-navbar { display: flex !important; background: var(--iium-turquoise); }
+        .main-content { padding: 15px !important; height: auto !important; }
+        .login-card { width: 90% !important; padding: 30px 20px !important; }
+        
+        /* Make Form step buttons scrollable horizontally on small screens */
+        .btn-group-steps { overflow-x: auto; white-space: nowrap; display: flex; flex-wrap: nowrap; padding-bottom: 5px; }
+        .btn-group-steps .btn { flex: 0 0 auto; }
+      }
+      
+      .mobile-navbar { display: none; } /* Hidden on desktop */
+
+     /* --- SECURE VIEWER STYLING --- */
+      @media print {
+        /* 1. STUDENT RESTRICTION: Blank the screen and show warning */
+        body.print-restricted { display: none !important; }
+        html.print-restricted { background-color: white; }
+        html.print-restricted::before { 
+            content: "SECURITY VIOLATION: Printing or saving this confidential document is prohibited."; 
+            display: block; text-align: center; margin-top: 20%; font-size: 24px; font-weight: bold; color: red; 
+        }
+
+        /* 2. ADMIN/STAFF ALLOWANCE: Clean up the UI for a perfect print */
+        body.print-allowed { background-color: white !important; -webkit-print-color-adjust: exact; }
+        body.print-allowed #login-view, body.print-allowed #app-view, body.print-allowed .toast-container { display: none !important; }
+        
+        /* Make the overlay transparent and remove shadows for paper */
+        /* Make the overlay transparent and remove shadows for paper */
+          body.print-allowed, html { height: auto !important; overflow: visible !important; }
+          body.print-allowed #secure-report-view { 
+              position: absolute !important; 
+              display: block !important; 
+              background: white !important; 
+              padding: 0 !important; 
+              margin: 0 !important;
+              overflow: visible !important; 
+              height: auto !important; 
+          }
+          body.print-allowed #secure-paper { 
+              box-shadow: none !important; 
+              border: none !important; 
+              padding: 0 !important; 
+              margin: 0 !important; 
+              max-width: 100% !important; 
+              width: 100% !important; 
+              min-height: auto !important; 
+          }
+        
+        /* Hide the Top Buttons and Watermark on the official printout */
+        body.print-allowed .hide-on-print { display: none !important; }
+        body.print-allowed .watermark-layer { display: none !important; }
+        
+        /* Standard Word Document Margins */
+        @page { size: A4 portrait; margin: 2.54cm; }
+        .print-break-avoid { page-break-inside: avoid; }
+      }
+      
+      /* Prevents highlighting text with the mouse */
+      .unselectable {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+      
+    /* --- COMPACT REPORT STYLING (To fit on 1 page) --- */
+      .report-header { text-align: center; margin-bottom: 15px; border-bottom: 2px solid var(--iium-turquoise); padding-bottom: 10px;}
+      .report-header img { width: 90px; margin-bottom: 5px; } 
+      .report-header h3 { font-size: 1.25rem !important; margin: 0 !important; font-weight: bold; color: #333; }
+      .report-header h5 { font-size: 0.95rem !important; margin: 2px 0 0 0 !important; color: #666; font-weight: normal; }
+      
+      .report-meta-table { width: 100%; margin-bottom: 15px; font-size: 0.85rem; border-collapse: collapse; table-layout: auto; }
+      .report-meta-table td { padding: 4px 5px; border-bottom: 1px solid #eee; }
+      .report-meta-label { font-weight: bold; width: 18%; min-width: 120px; color: #555; white-space: nowrap; }
+      
+      .report-section { margin-bottom: 15px; position: relative; z-index: 2; }
+      .report-section h5 { color: var(--iium-turquoise); font-weight: bold; font-size: 0.95rem; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-bottom: 5px; text-transform: uppercase;}
+      .report-text { white-space: pre-wrap; font-size: 0.85rem; line-height: 1.4; margin-bottom: 0;}    
     </style>
-</head>
-<body>
-    <div class="vh-100 d-flex align-items-center justify-content-center bg-light">
-        <div class="card shadow-lg border-0" style="width: 450px; padding: 40px; border-top: 6px solid var(--iium-gold) !important;">
-            <div class="text-center mb-4">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/IIUM_Logo_2019.svg" width="210" class="mb-4 mt-2" alt="IIUM Logo">
-                <h4 class="fw-bold text-secondary">IIUM Hearing & Speech Clinic</h4>
-                <span class="badge bg-success mt-2">⚡ Vercel API Bridge Active</span>
+  </head>
+  <body>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1060;">
+      <div id="liveToast" class="toast align-items-center text-white border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body d-flex align-items-center fw-bold">
+            <i id="toastIcon" class="bi fs-5 me-3"></i>
+            <div id="toastMessage">Message goes here.</div>
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="login-view" class="vh-100 d-flex align-items-center justify-content-center bg-light">
+      <div class="card login-card shadow border-0" style="width: 450px; padding: 40px; border-top: 6px solid var(--iium-gold) !important;">
+        <div class="text-center mb-4">
+           <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/IIUM_Logo_2019.svg" width="210" class="mb-4 mt-2" alt="IIUM Logo">
+           <h4 class="fw-bold text-secondary">IIUM Hearing & Speech Clinic</h4>
+        </div>
+        <form onsubmit="handleLogin(event)">
+          <div class="form-floating mb-3">
+            <input type="email" id="loginEmail" class="form-control" placeholder="Email" required>
+            <label>Email Address</label>
+          </div>
+          <div class="form-floating mb-4">
+            <input type="password" id="loginPass" class="form-control" placeholder="Password" required>
+            <label>Password</label>
+          </div>
+          <button type="submit" class="btn btn-iium w-100 py-2 fs-5">Login</button>
+          <div class="text-center mt-3 mb-2">
+               <span class="text-muted small">--- OR ---</span>
+            </div>
+            <button type="button" class="btn btn-outline-secondary w-100 fw-bold py-2 shadow-sm" onclick="loginAsGuest()">
+               <i class="bi bi-person-badge"></i> Login as Guest (Room Booking)
+            </button>
+          <div id="loginError" class="text-danger mt-3 text-center small"></div>
+        </form>
+      </div>
+    </div>
+
+    <div id="app-view" class="d-none">
+      
+      <nav class="navbar navbar-dark mobile-navbar px-3 py-2 sticky-top shadow-sm">
+        <div class="d-flex align-items-center">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/IIUM_Logo_2019.svg" width="30" class="me-2 filter-white" alt="IIUM">
+            <span class="text-white fw-bold mb-0">IIUM HSC</span>
+        </div>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      </nav>
+
+      <div class="offcanvas offcanvas-start bg-iium" tabindex="-1" id="mobileMenu">
+        <div class="offcanvas-header border-bottom border-secondary">
+          <h5 class="offcanvas-title text-white">Menu</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="mb-4 text-center">
+                <small class="text-white-50">Logged in as:</small><br>
+                <span id="userDisplayMobile" class="text-warning font-monospace small"></span>
+            </div>
+            <nav class="nav flex-column">
+                <a class="nav-link active" onclick="showPage('dashboard'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-speedometer2 me-2"></i> Queue Dashboard</a>
+                <a class="nav-link" onclick="startNewPatient(); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-clipboard-plus me-2"></i> New Census</a>
+                <a class="nav-link" id="nav-appointments-mob" onclick="showPage('appointments'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-calendar-week me-2"></i> Appointments</a>
+                <a class="nav-link" id="nav-rooms-mob" onclick="showPage('rooms'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-door-open me-2"></i> Rooms Booking</a>
+                <a class="nav-link" onclick="showPage('case-search'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-search-heart me-2"></i> Case Search</a>
+                <a class="nav-link" id="nav-hsp-mob" onclick="showPage('hsp'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-person-bounding-box me-2"></i> HSP Database</a>
+                <a class="nav-link mt-4 text-danger fw-bold" onclick="performLogout()"><i class="bi bi-box-arrow-left me-2"></i> Logout</a>
+            </nav>
+        </div>
+      </div>
+
+      <div class="container-fluid">
+        <div class="row">
+          
+          <div class="col-md-2 sidebar p-0 d-none d-md-flex flex-column">
+             <div class="p-4 text-center border-bottom border-secondary">
+               <h6 class="mb-0">Logged in as:</h6>
+               <small id="userDisplay" class="text-warning font-monospace"></small>
+             </div>
+             <nav class="nav flex-column mt-3 mb-4">
+                <a class="nav-link active" id="nav-dashboard" onclick="showPage('dashboard')"><i class="bi bi-speedometer2 me-2"></i> Queue Dashboard</a>
+                <a class="nav-link" id="nav-census" onclick="startNewPatient()"><i class="bi bi-clipboard-plus me-2"></i> New Census</a>
+                <a class="nav-link" id="nav-appointments" onclick="showPage('appointments')"><i class="bi bi-calendar-week me-2"></i> Appointments</a>
+                <a class="nav-link" id="nav-rooms" onclick="showPage('rooms')"><i class="bi bi-door-open me-2"></i> Rooms Booking</a>
+                <a class="nav-link" id="nav-casesearch" onclick="showPage('case-search')"><i class="bi bi-search-heart me-2"></i> Case Search</a>
+                <a class="nav-link" id="nav-hsp" onclick="showPage('hsp')"><i class="bi bi-person-bounding-box me-2"></i> HSP Database</a>
+                
+                <a class="nav-link text-warning mt-3 border-top pt-3" id="nav-analytics" href="https://lookerstudio.google.com/reporting/4cdb0dcc-21a9-4713-9b08-5f144d2cbed0/page/QqnpF" target="_blank" style="display:none;">
+                   <i class="bi bi-bar-chart-fill me-2"></i> Analytics Dashboard
+                </a>
+                <a class="nav-link text-warning ps-4" id="nav-hsp-analytics" style="cursor: pointer; display:none;" onclick="showPage('hsp-analytics')">
+           <i class="bi bi-graph-up me-2"></i> HSP Analytics
+        </a>
+              
+                <a class="nav-link mt-5 text-danger fw-bold" onclick="performLogout()"><i class="bi bi-box-arrow-left me-2"></i> Logout</a>
+              </nav>
+
+             <div class="mt-auto w-100 p-3 text-center text-white-50 small border-top border-secondary" style="font-size: 0.75rem;">
+                <strong>IIUM Hearing & Speech Clinic</strong><br>
+                Version 1.0.0 &copy; 2026<br>
+                Dept. of Audiology & Speech Language Pathology, Kulliyyah of Allied Health Sciences
+             </div>
+          </div>
+
+          <div class="col-md-10 p-4 main-content" style="height: 100vh; overflow-y: auto;">
+            
+            <div id="page-dashboard" class="page-view active">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+                <h3 class="fw-bold text-dark mb-0">Daily Patient Queue</h3>
+                <div>
+                   <button class="btn btn-outline-secondary me-2" onclick="loadQueue()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                   <button class="btn btn-iium" onclick="startNewPatient()"><i class="bi bi-person-plus"></i> Register Patient</button>
+                </div>
+              </div>
+
+              <div class="card p-3 mb-4 border-0 shadow-sm">
+                <div class="row g-3 align-items-center justify-content-between">
+                  <div class="col-md-5 position-relative">
+                    <div class="input-group">
+                      <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                      <input type="text" id="inp_search" class="form-control border-start-0 ps-0" placeholder="Search Name, IC, or RN..." oninput="triggerSmartSearch()">
+                      <button class="btn btn-primary" onclick="searchDB()">Search</button>
+                    </div>
+                    <div id="search-results" class="list-group mt-1 position-absolute w-100 shadow-lg" 
+                         style="max-height: 300px; overflow-y: auto; z-index: 1050; display:none;">
+                    </div>
+                  </div>
+                  <div class="col-md-6 text-md-end">
+                    <div class="d-inline-flex align-items-center gap-2 flex-wrap">
+                       <span class="text-muted small fw-bold d-none d-md-inline"><i class="bi bi-calendar-day"></i> Date:</span>
+                       <input type="date" id="queueDate" class="form-control form-control-sm shadow-sm border-primary" style="width:150px;" onchange="loadQueue()">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                     <table class="table table-hover align-middle mb-0"  style="font-size: 0.9rem; min-width: 800px;">
+                        <thead class="bg-light">
+                          <tr>
+                             <th class="text-center" style="width: 80px;">Time</th>
+                             <th class="text-start" style="width: 250px;">Patient Info</th>
+                             <th class="text-center">Clinical Details</th>
+                             <th class="text-center" style="width: 200px;">Next Visit Plan</th> 
+                             <th class="text-center">Status</th>
+                             <th class="text-center">Total Charges (RM)</th>
+                             <th class="text-center">Action</th>
+                          </tr>
+                       </thead>
+                       <tbody id="queueTableBody"></tbody>
+                     </table>
+                  </div>
+              </div>
+            </div>
+
+            <div id="patient-dashboard" class="page-view">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
+                    <h3 class="mb-0 text-primary text-uppercase fw-bold" id="dash_name">Patient Name</h3>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-secondary shadow-sm" onclick="showPage('dashboard')"><i class="bi bi-arrow-left"></i> Back</button>
+                        <button class="btn btn-success shadow-sm" onclick="proceedToCensus()"><i class="bi bi-file-earmark-medical"></i> New Census</button>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0 mb-4 bg-white rounded-3 border-start border-4 border-iium">
+                    <div class="card-body p-3">
+                        <div class="row g-3 text-muted" style="font-size: 0.9rem;">
+                            <div class="col-md-4 border-md-end">
+                                <div class="mb-1"><i class="bi bi-person-vcard text-iium me-2"></i><strong class="text-dark">IC:</strong> <span id="dash_ic">-</span></div>
+                                <div class="mb-1"><i class="bi bi-hash text-iium me-2"></i><strong class="text-dark">RN:</strong> <span id="dash_rn">-</span></div>
+                                <div><i class="bi bi-calendar3 text-iium me-2"></i><strong class="text-dark">Age:</strong> <span id="dash_age">-</span></div>
+                            </div>
+                            <div class="col-md-4 border-md-end">
+                                <div class="mb-1"><i class="bi bi-telephone-fill text-success me-2"></i><span id="dash_contact">-</span></div>
+                                <div class="mb-1"><i class="bi bi-envelope-fill text-success me-2"></i><span id="dash_email">-</span></div>
+                                <div><i class="bi bi-geo-alt-fill text-success me-2"></i><span id="dash_address" class="text-truncate d-inline-block w-75 align-bottom">-</span></div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="fw-bold text-danger mb-1"><i class="bi bi-heart-pulse-fill me-1"></i> Emergency Contact</div>
+                                <div class="mb-1 text-dark fw-bold"><span id="dash_ecName">-</span> <small class="text-muted fw-normal">(<span id="dash_ecRel">-</span>)</small></div>
+                                <div><i class="bi bi-telephone text-danger me-2"></i><span id="dash_ecContact">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0 h-100 mb-4">
+                    <div class="card-header bg-iium text-white fw-bold rounded-top">
+                        <i class="bi bi-clock-history me-2"></i> Visit History
+                    </div>
+                    <div class="card-body p-0 table-responsive bg-white">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem; min-width: 1000px;">
+                            <thead class="bg-light text-secondary">
+                                <tr>
+                                    <th style="width: 100px;" class="ps-3">Date</th>
+                                    <th style="width: 100px;">Supervisor</th>
+                                    <th style="width: 18%;">Procedures Done</th>
+                                    <th style="width: 22%;">Comments</th>
+                                    <th style="width: 18%;">Findings / Impression</th>
+                                    <th style="width: 15%;">Next Plan</th>
+                                    <th class="text-center" style="width: 100px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash_history_body"></tbody>
+                        </table>
+                        <div id="no_history_msg" class="p-5 text-center text-muted" style="display:none">
+                            <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i> No clinical records found.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-census" class="page-view">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                 <h4 class="mb-0">Clinical Census</h4>
+                 <button class="btn btn-sm btn-outline-danger" onclick="showPage('dashboard')">Cancel</button>
+              </div>
+
+              <div class="btn-group btn-group-steps w-100 mb-4 shadow-sm" role="group">
+                <button class="btn btn-outline-secondary active" id="btn-sec-1" onclick="showSection(1)">1. Details</button>
+                <button class="btn btn-outline-secondary" id="btn-sec-2" onclick="showSection(2)">2. Session</button>
+                <button class="btn btn-outline-secondary" id="btn-sec-3" onclick="showSection(3)">3. Procedures</button>
+                <button class="btn btn-outline-secondary" id="btn-sec-4" onclick="showSection(4)">4. Clinical</button>
+                <button class="btn btn-outline-secondary" id="btn-sec-5" onclick="showSection(5)">5. Plan & Management</button>
+              </div>
+
+              <div id="census_patient_banner" class="card shadow-sm border-start border-4 border-iium mb-4 bg-light d-none">
+                 <div class="card-body py-2 px-3">
+                    <h6 class="mb-0 fw-bold text-primary text-uppercase" id="hdr_name">--</h6>
+                    <div class="small text-muted mt-1">
+                       <strong>IC:</strong> <span id="hdr_ic">-</span> &nbsp;|&nbsp; 
+                       <strong>RN:</strong> <span id="hdr_rn">-</span> &nbsp;|&nbsp; 
+                       <strong>Age:</strong> <span id="hdr_age">-</span>
+                    </div>
+                 </div>
+              </div>
+
+              <form id="mainForm">
+                
+                <div id="sec-1" class="form-section active">
+                  <h5 class="border-bottom pb-2 mb-3 text-iium">Patient Details (Counter)</h5>
+                  <div class="row g-3">
+                      <div class="col-md-6">
+                        <label class="form-label fw-bold">IC Number <span class="text-danger">*</span></label>
+                        <input type="text" id="inp_ic" class="form-control" placeholder="YYMMDD-##-####" maxlength="14">
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label fw-bold">RN (Auto)</label>
+                        <input type="text" id="inp_rn" class="form-control bg-light" placeholder="Auto-generated..." readonly>
+                      </div>
+                      <div class="col-md-6"><label class="form-label fw-bold">Name <span class="text-danger">*</span></label><input type="text" id="inp_name" class="form-control"></div>
+                      <div class="col-md-4">
+                        <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
+                        <select id="inp_category" class="form-select border-primary" onchange="updatePrices()">
+                           <option value="Standard">Standard</option>
+                           <option value="Privileged">Privileged</option>
+                           <option value="Non-Malaysian">Non-Malaysian</option>
+                        </select>
+                      </div>
+                      <div class="col-md-3"><label class="form-label">Contact</label><input type="text" id="inp_contact" class="form-control" inputmode="numeric"></div>
+                      <div class="col-md-3"><label class="form-label">Sec. Contact</label><input type="text" id="inp_contact2" class="form-control" inputmode="numeric" placeholder="Optional"></div>
+                      <div class="col-md-6"><label class="form-label">Email</label><input type="email" id="inp_email" class="form-control"></div>
+                      <div class="col-12"><label class="form-label">Address</label><input type="text" id="inp_address" class="form-control"></div>
+                      
+                      <h6 class="mt-4 text-muted">Emergency Contact</h6>
+                      <div class="col-md-4"><label class="small">Name</label><input type="text" id="inp_ecName" class="form-control form-control-sm"></div>
+                      <div class="col-md-4"><label class="small">Contact</label><input type="text" id="inp_ecContact" class="form-control form-control-sm" inputmode="numeric"></div>
+                      <div class="col-md-4"><label class="small">Relationship</label><input type="text" id="inp_ecRel" class="form-control form-control-sm"></div>
+                  </div>
+                  <div class="mt-4 d-flex justify-content-between">
+                    <button type="button" id="btnSavePatient" class="btn btn-success" onclick="savePatientOnly()"><i class="bi bi-save"></i> Save Data</button>
+                    <button type="button" class="btn btn-primary" onclick="showSection(2)">Next &rarr;</button>
+                  </div>
+                </div>
+
+                <div id="sec-2" class="form-section">
+                  <h5 class="border-bottom pb-2 mb-4 text-iium"><i class="bi bi-clock-history"></i> Session Details (Counter)</h5>
+
+                  <div class="row g-3 mb-4">
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Date of Visit <span class="text-danger">*</span></label>
+                        <input type="date" id="inp_visitDate" class="form-control form-control-lg shadow-sm border-0 bg-light">
+                    </div>
+                    <div class="col-md-7">
+                       <label class="form-label fw-bold text-muted small text-uppercase">Attendance <span class="text-danger">*</span></label>
+                       <div class="d-flex flex-wrap gap-2" role="group">
+                         <input type="radio" class="btn-check" name="att" id="att0" value="Confirmed" onchange="handleAttendance(this.value)">
+                         <label class="btn btn-outline-primary shadow-sm flex-grow-1" for="att0">Confirmed</label>
+                         
+                         <input type="radio" class="btn-check" name="att" id="att1" value="Checked-in" onchange="handleAttendance(this.value)" checked>
+                         <label class="btn btn-outline-success shadow-sm flex-grow-1" for="att1"><i class="bi bi-check-circle"></i> Checked-in</label>
+                         
+                         <input type="radio" class="btn-check" name="att" id="att2" value="No-show" onchange="handleAttendance(this.value)">
+                         <label class="btn btn-outline-danger shadow-sm flex-grow-1" for="att2">No-show</label>
+                         
+                         <input type="radio" class="btn-check" name="att" id="att3" value="Postponed" onchange="handleAttendance(this.value)">
+                         <label class="btn btn-outline-warning text-dark shadow-sm flex-grow-1" for="att3">Postponed</label>
+                         
+                         <input type="radio" class="btn-check" name="att" id="att4" value="Cancelled" onchange="handleAttendance(this.value)">
+                         <label class="btn btn-outline-secondary shadow-sm flex-grow-1" for="att4">Cancelled</label>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div id="container-noshow" class="d-none alert alert-danger border-0 shadow-sm mb-4">
+                    <label class="form-label fw-bold"><i class="bi bi-info-circle"></i> Reason for No-show / Cancellation</label>
+                    <textarea id="inp_noshowReason" class="form-control border-danger" rows="2" placeholder="Briefly state the reason..."></textarea>
+                    <div class="mt-3 text-end"><button type="button" class="btn btn-sm btn-danger px-4 shadow-sm" onclick="showSection(5)">Skip directly to Plan &rarr;</button></div>
+                  </div>
+
+                  <div id="container-active" class="card border-0 shadow-sm mb-4 bg-light">
+                     <div class="card-body">
+                         <div class="row g-4">
+                            <div class="col-md-4">
+                                <label class="fw-bold mb-2 text-muted small text-uppercase">Tester <span class="text-danger">*</span></label>
+                                <div class="d-flex gap-2">
+                                    <input type="radio" class="btn-check" name="tester" id="t1" value="Student" checked><label class="btn btn-outline-primary bg-white w-100 shadow-sm" for="t1">Student</label>
+                                    <input type="radio" class="btn-check" name="tester" id="t2" value="Audiologist"><label class="btn btn-outline-primary bg-white w-100 shadow-sm" for="t2">Audio</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="fw-bold mb-2 text-muted small text-uppercase">Case Type <span class="text-danger">*</span></label>
+                                <div class="d-flex gap-2">
+                                    <input type="radio" class="btn-check" name="case" id="c1" value="New" onchange="toggleReferral(true)"><label class="btn btn-outline-primary bg-white w-100 shadow-sm" for="c1">New</label>
+                                    <input type="radio" class="btn-check" name="case" id="c2" value="Follow-up" onchange="toggleReferral(false)" checked><label class="btn btn-outline-primary bg-white w-100 shadow-sm" for="c2">Follow-up</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="fw-bold mb-2 text-muted small text-uppercase">Allocated (Hr) <span class="text-danger">*</span></label>
+                                <select id="inp_timeAlloc" class="form-select border-0 shadow-sm"><option>0.5</option><option>1.0</option><option>1.5</option><option>2.0</option><option>2.5</option><option>3.0</option></select>
+                            </div>
+                         </div>
+                         
+                         <div id="box-referral" class="d-none mt-4 pt-4 border-top border-secondary border-opacity-25">
+                            <label class="form-label fw-bold text-muted small text-uppercase"><i class="bi bi-file-medical"></i> Referral Details</label>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <select id="inp_refSource" class="form-select border-0 shadow-sm">
+                                      <option value="">Select Source...</option>
+                                      <option>HSP</option><option>Self-referred</option><option>Other IIUM</option>
+                                      <option>KKM</option><option>Private Clinic</option><option>Others</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" id="inp_refDetails" class="form-control border-0 shadow-sm" placeholder="Specific details (e.g., ENT HTAA)">
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" id="inp_refReason" class="form-control border-0 shadow-sm" placeholder="Reason for referral">
+                                </div>
+                            </div>
+                         </div>
+                     </div>
+                  </div>
+
+                  <div class="mt-4 d-flex flex-column flex-md-row justify-content-between gap-2">
+                    <button type="button" class="btn btn-secondary w-100 w-md-auto" onclick="showSection(1)">&larr; Back</button>
+                    <div class="d-flex gap-2 w-100 w-md-auto">
+                      <button type="button" id="btnSaveCounter" class="btn btn-outline-success flex-grow-1" onclick="submitCensusV2('CounterSave')"><i class="bi bi-save"></i> Save Session</button>
+                      <button type="button" class="btn btn-primary flex-grow-1" onclick="showSection(3)">Next &rarr;</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="sec-3" class="form-section">
+                   <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center border-bottom pb-2 mb-3 gap-2">
+                      <h5 class="text-iium mb-0">Procedures & Billing (Clinician)</h5>
+                      <div class="bg-light p-2 rounded border fs-6 text-muted">Est. Cost: <strong class="text-dark">RM <span id="displayTotal">0.00</span></strong></div>
+                   </div>
+
+                   <div class="card p-3 bg-light mb-3" style="max-height: 400px; overflow-y: auto;">
+                      <div id="procedureList"></div> 
+                   </div>
+                   <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mt-4">
+                       <button type="button" class="btn btn-secondary w-100 w-md-auto" onclick="showSection(2)">&larr; Back</button>
+                       <div class="d-flex gap-2">
+                         <button type="button" id="btnSaveProgress" class="btn btn-outline-success flex-grow-1" onclick="submitCensusV2('Draft')"><i class="bi bi-save"></i> Save</button>
+                         <button type="button" class="btn btn-primary flex-grow-1" onclick="showSection(4)">Next &rarr;</button>
+                       </div>
+                    </div>
+                </div>
+
+                <div id="sec-4" class="form-section">
+                   <h5 class="border-bottom pb-2 mb-3 text-iium">Clinical Records (Clinician)</h5>
+                   <div class="row g-3 mb-3">
+                      <div class="col-md-6"><label class="fw-bold">Student Name(s)</label><input type="text" id="inp_student" class="form-control" placeholder="Kindy enter FULL NAME"></div>
+                      <div class="col-md-6">
+                          <label class="fw-bold">Supervisor <span class="text-danger">*</span></label>
+                          <select id="inp_supervisor" class="form-select">
+                              <option value="Unassigned">Select...</option>
+                              <option>RR</option><option>NHO</option><option>MRM</option>
+                              <option>MIF</option><option>NAI</option><option>NAZ</option>
+                              <option>NAH</option><option>SR</option><option>NHS</option>
+                              <option>NI</option><option>NSMS</option><option>SAJ</option><option>TZH</option>
+                          </select>
+                      </div>
+                   </div>
+                   <div class="row g-3 mb-3">
+                      <div class="mb-4">
+                      <label class="fw-bold text-dark mb-1">Case History</label>
+                      <textarea id="inp_history" class="form-control border-primary" rows="8" placeholder="This 56 years old Malay gentleman came..."></textarea>
+                   </div>
+                   
+                   <div class="mb-4 p-3 bg-light border rounded shadow-sm">
+                      <label class="fw-bold d-flex justify-content-between align-items-end mb-2 text-dark">
+                         <span><i class="bi bi-clipboard2-pulse"></i> Assessment done</span>
+                         <span class="fw-normal text-success small"><i class="bi bi-magic"></i> Auto-generated from selected procedures</span>
+                      </label>
+                      
+                      <div id="dynamic-findings-container" class="row g-2 mb-2"></div>
+                      
+                      <textarea id="inp_findings" class="form-control form-control-sm mt-2 border-0" rows="2" placeholder="General findings or additional clinical notes..."></textarea>
+                   </div>
+                   </div>
+                   <div class="mb-3"><label class="fw-bold">Clinical findings/Impression <span class="text-danger">*</span></label><textarea id="inp_diagnosis" class="form-control border-primary" rows="2"></textarea></div>
+                   
+                   <div class="row g-3 mb-3">
+                      <div class="col-md-6"><label class="fw-bold">Actual (Hr) <span class="text-danger">*</span></label><select id="inp_timeActual" class="form-select"><option>0.5</option><option>1.0</option><option>1.5</option><option>2.0</option><option>2.5</option><option>3.0</option></select></div>
+                      <div class="col-md-6"><label class="fw-bold">Time Variance Reason</label><input type="text" id="inp_timeReason" class="form-control" placeholder="If Actual differs from Allocated"></div>
+                   </div>
+
+                   <div class="row g-3">
+                      <div class="col-md-6">
+                         <label class="fw-bold text-muted">Rooms Used <span class="text-danger">*</span></label>
+                         <div id="list-rooms" class="border p-2 bg-light rounded" style="max-height:150px; overflow-y:auto;">
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Cabin 1"> Cabin 1</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Cabin 2"> Cabin 2</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Cabin 3"> Cabin 3</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Cabin 4"> Cabin 4</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Cabin 5"> Cabin 5</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Cabin 6"> Cabin 6</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Room 7"> Room 7</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Room 8"> Room 8</div>
+                            <div class="form-check"><input class="form-check-input room-chk" type="checkbox" value="Room 9"> Room 9</div>
+                         </div>
+                         <input type="text" id="inp_roomOther" class="form-control mt-2 form-control-sm" placeholder="Other room...">
+                         
+                         <div class="mt-3 p-2 bg-warning bg-opacity-10 border border-warning rounded">
+                            <label class="fw-bold small text-dark"><i class="bi bi-pencil-square"></i> Actual Timing (Override Booking)</label>
+                            <textarea id="inp_roomOverride" class="form-control form-control-sm mt-1" rows="2" placeholder="e.g., Actually used Cabin 1 from 2:00-2:30, then Cabin 3 from 2:30-3:00"></textarea>
+                         </div>
+                      </div>
+                      <div class="col-md-6">
+                         <label class="fw-bold text-muted">Observation Room <span class="text-danger">*</span></label>
+                         <div id="list-obs" class="border p-2 bg-light rounded" style="max-height:150px; overflow-y:auto;">
+                            <div class="form-check"><input class="form-check-input obs-chk" type="checkbox" value="None" checked> None</div>
+                            <div class="form-check"><input class="form-check-input obs-chk" type="checkbox" value="Obs 1"> Obs 1</div>
+                            <div class="form-check"><input class="form-check-input obs-chk" type="checkbox" value="Obs 2"> Obs 2</div>
+                            <div class="form-check"><input class="form-check-input obs-chk" type="checkbox" value="Obs 3"> Obs 3</div>
+                            <div class="form-check"><input class="form-check-input obs-chk" type="checkbox" value="Obs 4"> Obs 4</div>
+                            <div class="form-check"><input class="form-check-input obs-chk" type="checkbox" value="Obs 5"> Obs 5</div>
+                            <div class="form-check"><input class="form-check-input obs-chk" type="checkbox" value="Main CCTV"> Main CCTV</div>
+                         </div>
+                         <input type="text" id="inp_obsOther" class="form-control mt-2 form-control-sm" placeholder="Other obs room...">
+                      </div>
+                   </div>
+                   <div class="mt-4 d-flex justify-content-between">
+                     <button type="button" class="btn btn-secondary" onclick="showSection(3)">&larr; Back</button>
+                     <button type="button" class="btn btn-primary" onclick="showSection(5)">Next &rarr;</button>
+                   </div>
+                </div>
+
+                <div id="sec-5" class="form-section">
+                   <h5 class="border-bottom pb-2 mb-3 text-iium">Plan & Management (Clinician)</h5>
+                   
+                   <div class="row g-3 mb-3 align-items-center">
+                      <div class="col-md-4">
+                          <label class="fw-bold d-block mb-1">Status</label>
+                          <div class="d-flex gap-2">
+                              <input type="radio" class="btn-check" name="planStatus" id="ps1" value="Follow-up" checked>
+                              <label class="btn btn-outline-primary flex-grow-1 shadow-sm" for="ps1">Follow-up</label>
+                              <input type="radio" class="btn-check" name="planStatus" id="ps2" value="Discharge">
+                              <label class="btn btn-outline-secondary flex-grow-1 shadow-sm" for="ps2">Discharge</label>
+                          </div>
+                      </div>
+                      <div class="col-md-8">
+                          <label class="fw-bold mb-1">Next Duration <span class="text-danger">*</span></label>
+                          <input type="text" id="inp_nextDur" class="form-control shadow-sm" placeholder="eg: TCA 2/52 (LEAVE THIS BOX and NEXT VISIT PLAN BLANK if Discharge)">
+                      </div>
+                   </div>
+
+                   <div class="mb-3 border p-3 rounded bg-light shadow-sm">
+                      <label class="fw-bold mb-2">Next Visit Plan <span class="text-danger">*</span></label>
+                      <div class="row g-2 small">
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="Hearing assessment"> Hearing assessment</div></div>
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="Hearing monitoring"> Hearing monitoring</div></div>
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="Hearing aid demonstration"> Hearing aid demonstration</div></div>
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="Hearing aid fitting"> Hearing aid fitting</div></div>
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="Hearing aid follow up"> Hearing aid follow up</div></div>
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="ABR site of lesion"> ABR site of lesion</div></div>
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="ABR threshold seeking"> ABR threshold seeking</div></div>
+                          <div class="col-md-4"><div class="form-check"><input class="form-check-input plan-chk" type="checkbox" value="Cortical Auditory Evoked Potential"> Cortical Auditory Evoked Potential</div></div>
+                          <div class="col-md-4">
+                              <div class="form-check">
+                                  <input class="form-check-input plan-chk" type="checkbox" value="Other" id="chkPlanOther" onchange="togglePlanOther()"> Other...
+                              </div>
+                          </div>
+                      </div>
+                      
+                      <div id="box-plan-other" class="mt-2 d-none">
+                          <input type="text" id="inp_planOtherDetail" class="form-control form-control-sm border-primary" placeholder="Specify additional tests, procedures, or plans...">
+                      </div>
+                   </div>
+                   <div class="mb-3 border p-3 rounded bg-light">
+                      <label class="fw-bold mb-2">Referral Letter Issued? <span class="text-danger">*</span></label>
+                      <div class="d-flex gap-3 flex-wrap">
+                         <div class="form-check"><input class="form-check-input ref-chk" type="checkbox" value="NA"> Not Applicable</div>
+                         <div class="form-check"><input class="form-check-input ref-chk" type="checkbox" value="ENT"> ENT</div>
+                         <div class="form-check"><input class="form-check-input ref-chk" type="checkbox" value="Speech"> SLP</div>
+                         <div class="form-check"><input class="form-check-input ref-chk" type="checkbox" value="AudioExternal"> External Audiologist</div>
+                         <div class="form-check"><input class="form-check-input ref-chk" type="checkbox" value="Others" id="chkRefOther" onchange="toggleRefOthers()"> Others</div>
+                      </div>
+                      <div id="box-ref-others" class="mt-2 d-none"><input type="text" id="inp_refOtherDetail" class="form-control form-control-sm" placeholder="Specify other referral..."></div>
+                   </div>
+                   <div class="mb-4"><label class="fw-bold">Final Remarks</label><textarea id="inp_remarks" class="form-control" rows="2" placeholder="Any internal notes..."></textarea></div>
+                   
+                   <div class="d-flex flex-column gap-2 mb-3">
+                      <button type="button" id="btnSaveDraft5" class="btn btn-outline-success btn-lg" onclick="submitCensusV2('Draft')">
+                        <span id="spinDraft5" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                        <span id="txtDraft5"><i class="bi bi-save"></i> Save as Draft (Finish Later)</span>
+                      </button>
+                      <button type="button" id="btnSubmitFinal" class="btn btn-iium btn-lg py-3 shadow" onclick="submitCensusV2('Completed')">
+                        <i class="bi bi-check2-circle"></i> Submit & Complete Census
+                      </button>
+                    </div>
+                    <div class="text-center mt-3">
+                       <button type="button" class="btn btn-link text-muted text-decoration-none" onclick="showSection(4)">&larr; Back to Clinical</button>
+                    </div>
+                </div> 
+              </form>
+            </div> 
+
+            <div id="page-appointments" class="page-view">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 bg-white p-3 rounded shadow-sm border-bottom border-warning border-3 gap-3">
+                <h3 class="mb-0 text-primary fw-bold"><i class="bi bi-calendar-week"></i> Weekly Schedule</h3>
+                <div class="d-flex align-items-center gap-2 w-100 w-md-auto">
+                  <div class="input-group flex-grow-1 flex-md-grow-0">
+                    <span class="input-group-text bg-light"><i class="bi bi-calendar-event"></i></span>
+                    <input type="date" id="apptGridDate" class="form-control fw-bold" onchange="loadApptGrid()">
+                  </div>
+                  <button class="btn btn-primary shadow-sm text-nowrap" onclick="loadApptGrid()">
+                    <i class="bi bi-arrow-clockwise d-md-none"></i> <span class="d-none d-md-inline">Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <div id="apptGridBody"></div>
+              
+              <div class="mt-3 text-muted small text-center text-md-start">
+                <i class="bi bi-info-circle-fill text-info"></i> 
+                Green slots are available. Click a time to book. 
+              </div>
+            </div> 
+
+            <div id="page-case-search" class="page-view">
+              <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+                <h3 class="mb-0 text-primary fw-bold d-none d-md-block"><i class="bi bi-search-heart"></i> Clinical Case Search</h3>
+                <h4 class="mb-0 text-primary fw-bold d-md-none"><i class="bi bi-search-heart"></i> Case Search</h4>
+                <span class="badge bg-iium d-none d-md-inline">Recruitment & Research</span>
+              </div>
+
+              <div class="card shadow-sm border-0 mb-4 p-3 p-md-4 bg-light">
+                <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-funnel"></i> Filter Profiles</h6>
+                <div class="row g-3">
+                  
+                  <div class="col-12 col-md-3">
+                    <label class="small fw-bold text-dark">Hearing Loss</label>
+                    <select id="flt_type" class="form-select shadow-sm">
+                      <option value="">Any Type</option>
+                      <option value="SNHL">Sensorineural (SNHL)</option>
+                      <option value="CHL">Conductive (CHL)</option>
+                      <option value="Mixed">Mixed (MHL)</option>
+                      <option value="Normal">Normal Hearing</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6 col-md-3">
+                    <label class="small fw-bold text-dark">Degree</label>
+                    <select id="flt_degree" class="form-select shadow-sm">
+                      <option value="">Any Degree</option>
+                      <option value="Mild">Mild</option>
+                      <option value="Moderate">Moderate</option>
+                      <option value="Severe">Severe</option>
+                      <option value="Profound">Profound</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6 col-md-3">
+                    <label class="small fw-bold text-dark">Ear</label>
+                    <select id="flt_site" class="form-select shadow-sm">
+                      <option value="">Any Ear</option>
+                      <option value="Right">Right</option>
+                      <option value="Left">Left</option>
+                      <option value="Bilateral">Bilateral</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-3">
+                    <label class="small fw-bold text-dark">Keyword</label>
+                    <input type="text" id="flt_keyword" class="form-control shadow-sm" placeholder="e.g. Vertigo..." onkeypress="if(event.key === 'Enter') executeAdvancedSearch()">
+                  </div>
+
+                  <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+                    <button class="btn btn-outline-secondary" onclick="document.querySelectorAll('[id^=flt_]').forEach(el => el.value = '')">Clear</button>
+                    <button class="btn btn-primary px-4 shadow-sm" onclick="executeAdvancedSearch()"><i class="bi bi-search"></i> Search</button>
+                  </div>
+
+                </div>
+              </div>
+
+              <div id="case-search-results" class="row g-3"></div>
+            </div> 
+           
+          <div id="page-hsp-analytics" class="page-view d-none">
+              <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+                <h3 class="fw-bold text-iium mb-0"><i class="bi bi-bar-chart-steps me-2"></i>HSP Advanced Analytics</h3>
+              </div>
+              
+              <div class="card shadow-sm border-0 mb-4 bg-light p-3">
+                  <div class="row g-3 align-items-end">
+                      <div class="col-md-3">
+                          <label class="small fw-bold">Semester</label>
+                          <select id="stat_sem" class="form-select shadow-sm"><option value="">All Semesters</option></select>
+                      </div>
+                      <div class="col-md-3">
+                          <label class="small fw-bold">Location</label>
+                          <select id="stat_loc" class="form-select shadow-sm"><option value="">All Locations</option></select>
+                      </div>
+                      <div class="col-md-4">
+                          <label class="small fw-bold">Venue</label>
+                          <select id="stat_ven" class="form-select shadow-sm"><option value="">All Venues</option></select>
+                      </div>
+                      <div class="col-md-2">
+                          <button class="btn btn-primary w-100 shadow-sm" onclick="triggerStatsFetch()"><i class="bi bi-funnel-fill"></i> Analyze</button>
+                      </div>
+                      
+                      <div class="col-md-12 mt-2 pt-3 border-top d-flex flex-wrap align-items-center gap-3">
+                          <div class="form-check form-switch">
+                              <input class="form-check-input" type="checkbox" id="stat_use_date" onchange="document.getElementById('stat_date_box').classList.toggle('d-none')">
+                              <label class="form-check-label small fw-bold">Enable Date Filter</label>
+                          </div>
+                          <div id="stat_date_box" class="d-none d-flex gap-2 align-items-center">
+                              <input type="date" id="stat_start" class="form-control form-control-sm w-auto"> 
+                              <span class="small fw-bold text-muted">to</span> 
+                              <input type="date" id="stat_end" class="form-control form-control-sm w-auto">
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="row g-3 mb-4" id="stat_cards_container">
+                  <div class="col-12 text-center p-4 text-muted"><span class="spinner-border spinner-border-sm"></span> Initializing Analytics Engine...</div>
+              </div>
+
+              <div class="card shadow-sm border-0">
+                  <div class="card-header bg-white fw-bold text-secondary py-3"><i class="bi bi-clipboard2-pulse"></i> Screening Sub-Test Diagnostics</div>
+                  <div class="card-body p-0 table-responsive">
+                      <table class="table table-hover text-center align-middle mb-0" style="font-size: 0.9rem;">
+                          <thead class="bg-light">
+                              <tr>
+                                  <th class="text-start ps-4">Test Component</th>
+                                  <th>Passed</th>
+                                  <th>Referred / Failed</th>
+                                  <th>Refer Rate</th>
+                              </tr>
+                          </thead>
+                          <tbody id="stat_test_body">
+                              <tr><td colspan="4" class="p-3">Pending analysis...</td></tr>
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+            </div>
+
+           <div id="page-hsp" class="page-view d-none">
+          <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+            <h3 class="fw-bold text-iium mb-0"><i class="bi bi-person-bounding-box me-2"></i>HSP Call List & Database</h3>
+            <button class="btn btn-outline-secondary btn-sm shadow-sm" onclick="loadHSPDashboard()"><i class="bi bi-arrow-clockwise"></i> Refresh Data</button>
+          </div>
+          
+          <div class="row g-3 mb-4" id="hsp-stats-container">
+             <div class="col-12 text-center p-3"><span class="spinner-border text-primary spinner-border-sm"></span> Loading Statistics...</div>
+          </div>
+
+          <div class="card shadow-sm border-0 mb-4 bg-iium text-white">
+            <div class="card-body p-3 d-flex flex-column flex-md-row gap-3 align-items-center">
+              <h6 class="mb-0 fw-bold text-nowrap"><i class="bi bi-search"></i> Direct Search:</h6>
+              <div class="input-group shadow-sm">
+                <input type="text" id="hsp_search_input" class="form-control border-0" placeholder="Type NRIC, Name, or Phone Number to find any specific record..." onkeypress="if(event.key === 'Enter') triggerHSPSearch()">
+                <button class="btn btn-warning fw-bold" onclick="triggerHSPSearch()">Search</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm border-0 border-top border-danger border-4">
+            <div class="card-header bg-white py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+               <h5 class="mb-0 fw-bold text-danger"><i class="bi bi-telephone-outbound me-2"></i>Referral Call List</h5>
+               <div class="d-flex gap-2 w-100 w-md-auto">
+                  <select id="hsp_filter_sem" class="form-select form-select-sm shadow-sm" style="max-width: 200px;" onchange="updateHSPVenues()"></select>
+                  <select id="hsp_filter_venue" class="form-select form-select-sm shadow-sm" style="max-width: 300px;" onchange="renderHSPTable()"></select>
+               </div>
             </div>
             
-            <form id="loginForm">
-                <div class="form-floating mb-3">
-                    <input type="email" id="loginEmail" class="form-control" placeholder="Email" required>
-                    <label>Email Address</label>
-                </div>
-                <div class="form-floating mb-4">
-                    <input type="password" id="loginPass" class="form-control" placeholder="Password" required>
-                    <label>Password</label>
-                </div>
-                <button type="submit" id="loginBtn" class="btn btn-iium w-100 py-2 fs-5">Test API Connection</button>
-                <div id="loginMessage" class="text-center mt-3 small fw-bold"></div>
-            </form>
+            <div class="bg-light p-2 text-center text-muted small border-bottom" id="hsp_venue_date_display">
+               Select a venue to view screening date and patient list.
+            </div>
 
+            <div class="card-body p-0 table-responsive">
+               <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem; min-width: 900px;">
+                  <thead class="bg-light text-secondary">
+                     <tr>
+                        <th class="ps-3">Patient Details</th>
+                        <th>Contact</th>
+                        <th>Referred Tests & Remarks</th>
+                        <th style="width: 220px;">Call Log / Notes</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Action</th>
+                     </tr>
+                  </thead> 
+                  <tbody id="hsp_table_body">
+                     <tr><td colspan="5" class="text-center p-4">Loading referral data...</td></tr>
+                  </tbody>
+               </table>
+            </div>
+          </div>
+          
+          <div class="row g-4 mt-2" id="hsp-search-results"></div>
+        </div>
+
+    <div id="page-rooms" class="page-view d-none">
+              
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 border-bottom pb-3 gap-3">
+                <h4 class="text-iium fw-bold mb-0"><i class="bi bi-door-open"></i> Room Availability</h4>
+                <div class="input-group w-auto shadow-sm">
+                  <span class="input-group-text bg-white border-primary"><i class="bi bi-calendar"></i></span>
+                  <input type="date" id="checkDate" class="form-control border-primary fw-bold" onchange="loadRoomGrid()">
+                  <button class="btn btn-primary" onclick="loadRoomGrid()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                </div>
+              </div>
+
+              <div id="weekly-room-container"></div>
+              
+              <div class="mt-4 text-center small text-muted bg-light p-2 rounded border shadow-sm">
+                 <span class="badge bg-success opacity-75 me-2">Free</span> Click '+' to Block Slot 
+                 <span class="badge bg-danger opacity-75 ms-3 me-2">Occupied</span> Clinic/Booked
+                 <span class="badge bg-warning text-dark opacity-75 ms-3">Pending</span> Approval In-Progress
+              </div>
+              
+            </div>
+
+    <div class="modal fade" id="statusModal" tabindex="-1">
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+          <div class="modal-header bg-light">
+            <h6 class="modal-title fw-bold">Update Status</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body d-grid gap-2 p-4">
+            <button class="btn btn-success" onclick="confirmStatusChange('Checked-in')"><i class="bi bi-check-circle"></i> Check In</button>
+            <button class="btn btn-outline-danger" onclick="confirmStatusChange('No-show')">No Show</button>
+            <button class="btn btn-outline-secondary" onclick="confirmStatusChange('Cancelled')">Cancel Appt</button>
+            <button class="btn btn-outline-dark" onclick="confirmStatusChange('Postponed')">Postpone</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="supervisorModal" tabindex="-1">
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h6 class="modal-title">Assign Supervisor</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <select id="newSupervisorSelect" class="form-select mb-3">
+                <option value="RR">RR</option><option value="NHO">NHO</option>
+                <option value="MRM">MRM</option><option value="MIF">MIF</option>
+                <option value="NAI">NAI</option><option value="NAZ">NAZ</option>
+                <option value="NAH">NAH</option><option value="SR">SR</option>
+                <option value="NHS">NHS</option><option value="NI">NI</option>
+                <option value="NSMS">NSMS</option><option value="SAJ">SAJ</option>
+                <option value="TZH">TZH</option>
+            </select>
+            <button class="btn btn-primary w-100" onclick="saveNewSupervisor()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="apptModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header bg-iium text-white border-0">
+            <h5 class="modal-title"><i class="bi bi-calendar-plus"></i> Book Appointment</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="apptForm">
+              <input type="hidden" id="bk_slot">
+              
+              <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="small fw-bold text-muted">Date</label>
+                    <input type="date" id="bk_date" class="form-control bg-light" readonly>
+                  </div>
+                  <div class="col-6">
+                    <label class="small fw-bold">Start Time</label>
+                    <select id="bk_time" class="form-select border-primary" onchange="checkApptRoomAvailability()">
+                      <option value="08:00">08:00 AM</option>
+                      <option value="08:30">08:30 AM</option>
+                      <option value="09:00">09:00 AM</option>
+                      <option value="09:30">09:30 AM</option>
+                      <option value="10:00">10:00 AM</option>
+                      <option value="10:30">10:30 AM</option>
+                      <option value="11:00">11:00 AM</option>
+                      <option value="11:30">11:30 AM</option>
+                      <option value="12:00">12:00 PM</option>
+                      <option value="12:30">12:30 PM</option>
+                      <option value="13:30">01:30 PM</option>
+                      <option value="14:00">02:00 PM</option>
+                      <option value="14:30">02:30 PM</option>
+                      <option value="15:00">03:00 PM</option>
+                      <option value="15:30">03:30 PM</option>
+                      <option value="16:00">04:00 PM</option>
+                      <option value="16:30">04:30 PM</option>
+                    </select>
+                  </div>
+              </div>
+
+              <div class="row g-2 mb-2">
+                      <div class="col-md-12">
+                        <label class="form-label fw-bold small text-muted mb-1">Total Appt Duration</label>
+                        <select id="bk_duration" class="form-select border-primary shadow-sm" onchange="checkApptRoomAvailability()">
+                          <option value="30">30 Minutes</option>
+                          <option value="60" selected>1 Hour</option>
+                          <option value="90">1.5 Hours</option>
+                          <option value="120">2 Hours</option>
+                          <option value="150">2.5 Hours</option>
+                          <option value="180">3 Hours</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div class="col-12 mb-3">
+                      <label class="form-label fw-bold small text-muted mb-1"><i class="bi bi-door-open"></i> Room / Cabin Allocation (Up to 3)</label>
+                      <div class="bg-light p-2 border rounded shadow-sm">
+                         <div class="row g-1 mb-1 fw-bold text-muted" style="font-size: 0.75rem;">
+                            <div class="col-5">Room</div>
+                            <div class="col-4">Start Time</div>
+                            <div class="col-2">Mins</div>
+                         </div>
+                         <div id="room-rows-container"></div>
+                         <button type="button" class="btn btn-sm btn-outline-primary mt-2 w-100 bg-white shadow-sm" onclick="addRoomRow()"><i class="bi bi-plus-circle"></i> Add Room Allocation</button>
+                      </div>
+                    </div>
+              <hr class="text-muted">
+
+              <div class="input-group mb-2 shadow-sm">
+                <input type="text" id="bk_ic_search" class="form-control border-primary" placeholder="Enter Name, IC, or Phone...">
+                <button class="btn btn-primary" type="button" onclick="fetchPatientContext(document.getElementById('bk_ic_search').value)"><i class="bi bi-search"></i></button>
+              </div>
+              
+              <div class="card bg-light p-3 mb-3 border-0 shadow-sm">
+                  <div class="row g-2">
+                    <div class="col-12">
+                      <label class="small text-muted fw-bold">Patient Name</label>
+                      <input type="text" id="bk_name" class="form-control fw-bold border-0 bg-white shadow-sm">
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label class="small text-muted fw-bold">Contact</label>
+                      <input type="text" id="bk_contact" class="form-control form-control-sm border-0 bg-white">
+                    </div>
+                    <div class="col-6 col-md-3">
+                      <label class="small text-muted fw-bold">DOB</label>
+                      <input type="text" id="bk_dob" class="form-control form-control-sm border-0 bg-white">
+                    </div>
+                     <div class="col-6 col-md-3">
+                      <label class="small text-muted fw-bold">Age</label>
+                      <input type="text" id="bk_age" class="form-control form-control-sm border-0 bg-white text-center text-primary fw-bold">
+                    </div>
+                  </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="small fw-bold text-dark">Assign Supervisor</label>
+                <select id="bk_sup" class="form-select shadow-sm">
+                   <option value="Unassigned">Select Supervisor...</option>
+                   <option>RR</option><option>NHO</option><option>MRM</option>
+                   <option>MIF</option><option>NAI</option><option>NAZ</option>
+                   <option>NAH</option><option>SR</option><option>NHS</option>
+                   <option>NI</option><option>NSMS</option><option>SAJ</option><option>TZH</option>
+                </select>
+              </div>
+
+              <div class="mb-3 border p-3 rounded bg-white shadow-sm">
+                <label class="small fw-bold text-dark mb-2">Case Type & Plan</label>
+                <div class="input-group mb-2">
+                   <span class="input-group-text bg-light text-muted">Type</span>
+                   <select id="bk_type" class="form-select border-start-0">
+                      <option>Follow-up</option>
+                      <option>New Case</option>
+                   </select>
+                </div>
+                <textarea id="bk_plan" class="form-control mb-2" rows="2" placeholder="Describe the plan for this visit..."></textarea>
+                <div class="bg-light p-2 rounded small text-muted border border-dashed">
+                    <i class="bi bi-clock-history"></i> Previous Visit: <span id="bk_prev_visit" class="fw-bold text-dark">-</span>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" id="btnBookConfirm" class="btn btn-success w-100 py-2 fs-5 shadow" onclick="confirmBooking()">Confirm Appointment</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="internalRoomModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-warning text-dark border-0">
+            <h5 class="modal-title fw-bold"><i class="bi bi-envelope-paper"></i> Request Room Booking</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+           <form id="internalRoomForm">
+               <div class="alert alert-light border border-warning shadow-sm small mb-3">
+                 <i class="bi bi-info-circle text-warning me-1"></i> Requires Manager Approval. You will receive an email confirmation.
+               </div>
+
+               <div id="guest_details_block" class="d-none p-3 border rounded bg-warning bg-opacity-10 mb-3 shadow-sm">
+                  <label class="small fw-bold text-dark text-uppercase mb-2"><i class="bi bi-person-lines-fill"></i> Guest Details</label>
+                  
+                  <div class="row g-2 mb-2">
+                     <div class="col-md-7">
+                        <label class="small fw-bold text-muted">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" id="ir_app_name" class="form-control form-control-sm border-warning">
+                     </div>
+                     <div class="col-md-5">
+                        <label class="small fw-bold text-muted">Contact No. <span class="text-danger">*</span></label>
+                        <input type="text" id="ir_app_contact" class="form-control form-control-sm border-warning">
+                     </div>
+                  </div>
+
+                  <div class="row g-2 mb-2">
+                     <div class="col-md-6">
+                        <label class="small fw-bold text-muted">Programme <span class="text-danger">*</span></label>
+                        <input type="text" id="ir_app_prog" class="form-control form-control-sm border-warning" placeholder="e.g., Audiology, SLP">
+                     </div>
+                     <div class="col-md-6">
+                        <label class="small fw-bold text-muted">Year of Study <span class="text-danger">*</span></label>
+                        <input type="text" id="ir_app_year" class="form-control form-control-sm border-warning" placeholder="e.g., Year 1, Year 2">
+                     </div>
+                  </div>
+               </div>
+
+               <div class="mb-3">
+                  <label class="small fw-bold text-muted">Preferred Email (For Approval) <span class="text-danger">*</span></label>
+                  <input type="email" id="ir_pref_email" class="form-control form-control-sm border-primary" placeholder="e.g., student@gmail.com" required>
+               </div>
+
+               <label class="small fw-bold text-muted mb-1"><i class="bi bi-calendar-range"></i> Date & Time Slots</label>
+               <div id="ir_dynamic_dates_container" class="bg-light p-2 border rounded mb-3">
+                  </div>
+               <button type="button" class="btn btn-sm btn-outline-primary w-100 mb-3 shadow-sm bg-white fw-bold" onclick="addIrDateRow()"><i class="bi bi-plus-circle"></i> Add Another Day/Slot</button>
+
+               <div class="mb-3">
+                  <label class="small fw-bold text-muted">Purpose of Block</label>
+                  <select id="ir_purpose" class="form-select" onchange="toggleDataCollectionFields()">
+                     <option>Practical / Assignment</option>
+                     <option value="Data collection">Research (Data collection)</option>
+                     <option>Maintenance / Calibration</option>
+                     <option>Meeting</option>
+                     <option>Other</option>
+                  </select>
+               </div>
+
+               <div id="ir_data_collection_fields" class="d-none p-3 border border-iium rounded bg-iium bg-opacity-10 mb-3">
+                  <div class="mb-2">
+                     <label class="small fw-bold text-iium">Subjects' Name(s) <span class="text-danger">*</span></label>
+                     <textarea id="ir_subjects" class="form-control form-control-sm border-iium" rows="2" placeholder="1. Name A&#10;2. Name B (Required for Headcount Emergency)"></textarea>
+                  </div>
+                  <div>
+                     <label class="small fw-bold text-iium">Research Supervisor <span class="text-danger">*</span></label>
+                     <input type="text" id="ir_research_sup" class="form-control form-control-sm border-iium" placeholder="e.g., Prof. Dr. Ahmad Aidil Arafat">
+                  </div>
+               </div>
+
+               <div class="mb-3 d-none p-2 border border-danger rounded bg-danger bg-opacity-10" id="weekend-staff-container">
+                 <label class="small fw-bold text-danger text-uppercase mb-1" id="standby-label-text"><i class="bi bi-exclamation-triangle-fill"></i> Staff In-Charge</label>
+                 <select id="ir_standby_staff" class="form-select border-danger shadow-sm" onchange="toggleOtherStaffInput()">
+                    <option value="">Select Supervisor/Staff...</option>
+                    <option>MIH</option><option>RR</option><option>NHO</option><option>MRM</option>
+                    <option>MIF</option><option>NAI</option><option>NAZ</option><option>NAH</option>
+                    <option>SR</option><option>NHS</option><option>NI</option><option>NSMS</option>
+                    <option>SAJ</option><option>TZH</option>
+                    <option value="Other">Other (Please specify...)</option>
+                 </select>
+                 <input type="text" id="ir_standby_other" class="form-control border-danger shadow-sm mt-2 d-none" placeholder="Type staff name here...">
+               </div>
+
+               <div class="mb-3">
+                  <label class="small fw-bold text-muted">Remarks (Visible in Calendar)</label>
+                  <textarea id="ir_remarks" class="form-control" rows="2" placeholder="Add specific details, Equipment needed, Additional requests,..."></textarea>
+               </div>
+            </form> 
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" id="btnIrConfirm" class="btn btn-warning w-100 py-2 fw-bold shadow" onclick="confirmInternalBooking()">
+               Submit Request
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  <div class="modal fade" id="billingModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-success text-white border-0">
+            <h5 class="modal-title fw-bold"><i class="bi bi-currency-dollar"></i> Process Payment</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4">
+            <div class="alert alert-light border shadow-sm small mb-4">
+              <strong>Procedures Selected by Clinician:</strong><br>
+              <div id="bill_procedures" class="mt-2"></div>
+            </div>
+
+            <div class="mb-3">
+               <label class="small fw-bold text-muted">Patient Category (From Registration)</label>
+               <input type="text" id="bill_category" class="form-control bg-light fw-bold text-primary" readonly value="Standard">
+             </div>
+
+            <div class="row g-2 mb-4">
+              <div class="col-6">
+                <label class="small fw-bold text-muted">Payment Mode</label>
+                <select id="bill_mode" class="form-select">
+                  <option>EZpay</option>
+                  <option>QR</option>
+                  <option>Credit/Debit Card</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="small fw-bold text-muted">Discount Applied?</label>
+                <select id="bill_discount" class="form-select" onchange="calcBillingTotal(); toggleDiscountReason()">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes (10%)</option>
+                </select>
+              </div>
+              
+              <div class="col-12 mt-2 d-none" id="div_discount_reason">
+                 <input type="text" id="bill_discount_reason" class="form-control form-control-sm border-warning bg-warning bg-opacity-10" placeholder="Reason (e.g. Senior Citizen, OKU)...">
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded border">
+              <span class="fs-5 fw-bold text-muted">Final Total:</span>
+              <span class="fs-3 fw-bold text-success">RM <span id="bill_total">0.00</span></span>
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" id="btnSaveBilling" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveBilling()">
+               Save Payment Record
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="secure-report-view" class="d-none position-fixed top-0 start-0 w-100 h-100" style="background-color: rgba(0,0,0,0.85); z-index: 9999; overflow-y: auto;">
+        <div class="container my-4 position-relative">
+            
+            <div class="d-flex justify-content-between align-items-center mb-3 hide-on-print">
+                <span class="text-warning fw-bold"><i class="bi bi-shield-lock-fill"></i> Secure View Mode Active</span>
+                <div>
+                    <button id="btn-print-report" class="btn btn-primary shadow fw-bold me-2 d-none" onclick="printReportDiv()"><i class="bi bi-printer-fill"></i> Print Official Report</button>
+                    <button class="btn btn-danger shadow fw-bold" onclick="closeSecureReport()"><i class="bi bi-x-circle-fill"></i> Close Document</button>
+                </div>
+            </div>
+            
+            <div id="secure-paper" class="card shadow-lg border-0 p-5 bg-white mx-auto unselectable" style="max-width: 800px; min-height: 1050px; position: relative; overflow: hidden;">
+                
+                <div class="position-absolute top-50 start-50 translate-middle text-center watermark-layer" style="z-index: 1; pointer-events: none; transform: translate(-50%, -50%) rotate(-35deg); width: 150%;">
+                    <div style="font-size: 4.5rem; color: rgba(255, 0, 0, 0.08); font-weight: 900; line-height: 1;">CONFIDENTIAL</div>
+                    <div id="wm_user" style="font-size: 1.8rem; color: rgba(255, 0, 0, 0.12); font-weight: bold; margin-top: 10px;"></div>
+                    <div id="wm_time" style="font-size: 1.2rem; color: rgba(255, 0, 0, 0.12); font-weight: bold;"></div>
+                </div>
+
+                <div style="position: relative; z-index: 2;">
+                    <div class="report-header">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/IIUM_Logo_2019.svg" alt="IIUM Logo">
+                        <h3 style="margin: 0; font-weight: bold; color: #333;">IIUM Hearing & Speech Clinic</h3>
+                        <h5 style="margin: 5px 0 0 0; color: #666; font-weight: normal;">AUDIOLOGICAL EVALUATION REPORT</h5>
+                    </div>
+                    
+                    <table class="report-meta-table">
+                        <tr>
+                            <td class="report-meta-label">Patient Name:</td><td id="rpt_name" style="font-weight: bold; font-size: 1.05rem;">-</td>
+                            <td class="report-meta-label">Date of Visit:</td><td id="rpt_date">-</td>
+                        </tr>
+                        <tr>
+                            <td class="report-meta-label">IC Number:</td><td id="rpt_ic">-</td>
+                            <td class="report-meta-label">Age:</td><td id="rpt_age">-</td>
+                        </tr>
+                        <tr>
+                            <td class="report-meta-label">RN:</td><td id="rpt_rn">-</td>
+                            <td class="report-meta-label">Supervisor:</td><td id="rpt_supervisor">-</td>
+                        </tr>
+                    </table>
+
+                    <div class="report-section">
+                        <h5>Case History</h5>
+                        <div id="rpt_history" class="report-text">-</div>
+                    </div>
+
+                    <div class="report-section">
+                        <h5>Assessment Done</h5>
+                        <div id="rpt_findings" class="report-text">-</div>
+                    </div>
+
+                    <div class="report-section">
+                        <h5>Clinical Findings / Impression</h5>
+                        <div id="rpt_diagnosis" class="report-text fw-bold">-</div>
+                    </div>
+
+                    <div class="report-section">
+                        <h5>Plan & Management</h5>
+                        <div id="rpt_plan" class="report-text">-</div>
+                    </div>
+
+                    <table style="width: 100%; margin-top: 50px; border-collapse: collapse; page-break-inside: avoid;">
+                        <tr>
+                            <td style="width: 50%; text-align: left; vertical-align: bottom;">
+                                <div id="rpt_student_signature_block" style="display: none;">
+                                    <p style="margin: 0 0 5px 0;">_____________________________________</p>
+                                    <p style="margin:0; font-weight:bold;" id="rpt_student_bottom">-</p>
+                                    <p style="margin:0; font-size:0.85rem; color:#666;">Student Clinician</p>
+                                </div>
+                            </td>
+                            <td style="width: 50%; text-align: right; vertical-align: bottom;">
+                                <p style="margin: 0 0 5px 0;">_____________________________________</p>
+                                <p style="margin:0; font-weight:bold;" id="rpt_sign_name">Supervisor Signature</p>
+                                <p style="margin:0; font-size:0.85rem; color:#666;">IIUM Hearing & Speech Clinic</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
+    <div class="modal fade" id="hspDrilldownModal" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+          <div class="modal-header bg-dark text-white border-0">
+            <h5 class="modal-title fw-bold" id="drilldownTitle">Case Summary</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-0 table-responsive bg-light">
+            <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
+                <thead class="bg-white text-secondary sticky-top shadow-sm">
+                    <tr id="drilldownHeaders">
+                        </tr>
+                </thead>
+                <tbody id="drilldownBody">
+                    </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        // THIS IS YOUR NEW GOOGLE API SWITCHBOARD!
-        const API_URL = "https://script.google.com/macros/s/AKfycbzvxrBiL8wvekvnoZaxWZxqLcpHiZQEiSLHOYsxW4q7Qm7VGIu0iCofOjWpDv5Q1H_sBA/exec";
-
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const btn = document.getElementById('loginBtn');
-            const msgBox = document.getElementById('loginMessage');
-            const email = document.getElementById('loginEmail').value;
-            const pass = document.getElementById('loginPass').value;
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Contacting Google...';
-            msgBox.className = "text-center mt-3 small fw-bold text-primary";
-            msgBox.innerText = "";
-
-            try {
-                // THE REWIRING: Using standard 'fetch' instead of 'google.script.run'
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'login', email: email, password: pass })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    msgBox.className = "text-center mt-3 fs-6 fw-bold text-success";
-                    msgBox.innerHTML = `✅ CONNECTION SUCCESSFUL!<br><small class="text-muted">Google recognized you as: <strong>${result.role}</strong></small>`;
-                    btn.innerHTML = "Bridge Established!";
-                    btn.classList.replace('btn-iium', 'btn-success');
-                } else {
-                    msgBox.className = "text-center mt-3 small fw-bold text-danger";
-                    msgBox.innerText = "❌ " + result.message;
-                    btn.disabled = false;
-                    btn.innerHTML = "Try Again";
-                }
-            } catch (error) {
-                msgBox.className = "text-center mt-3 small fw-bold text-danger";
-                msgBox.innerText = "⚠️ Network Error: " + error.message;
-                btn.disabled = false;
-                btn.innerHTML = "Try Again";
-            }
-        });
-    </script>
-</body>
+   window.START_PAGE = "dashboard";
+</script>
+<script src="app.js"></script>
+  </body>
 </html>
