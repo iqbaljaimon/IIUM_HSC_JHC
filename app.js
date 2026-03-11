@@ -404,8 +404,7 @@ function showPage(pageId) {
     window.scrollTo(0,0);
 }
 
-
- // --- START NEW PATIENT (SIDEBAR BUTTON) ---
+// --- START NEW PATIENT (SIDEBAR BUTTON) ---
 function startNewPatient() {
     currentVisitId = null; 
     
@@ -416,6 +415,29 @@ function startNewPatient() {
     
     // FIX: Set Date to Today by default
     document.getElementById('inp_visitDate').valueAsDate = new Date();
+
+    // --- NEW: DEEP UI RESET (Fixes the "Ghost Data" bug) ---
+    // 1. Reset Estimated Cost to zero
+    const totalDisp = document.getElementById('displayTotal');
+    if (totalDisp) totalDisp.innerText = "0.00";
+    
+    // 2. Hide Referral Box (Default is Follow-up)
+    toggleReferral(false); 
+    
+    // 3. Clear Dynamic Findings Boxes
+    const findingsContainer = document.getElementById('dynamic-findings-container');
+    if (findingsContainer) findingsContainer.innerHTML = '';
+    
+    // 4. Hide "Other" text boxes just in case they were left open
+    const planOtherBox = document.getElementById('box-plan-other');
+    if (planOtherBox) { planOtherBox.classList.add('d-none'); document.getElementById('inp_planOtherDetail').value = ''; }
+    
+    const refOtherBox = document.getElementById('box-ref-others');
+    if (refOtherBox) { refOtherBox.classList.add('d-none'); document.getElementById('inp_refOtherDetail').value = ''; }
+    
+    // 5. Reset Attendance UI to default (Show Clinical section, hide No-show reason)
+    handleAttendance('Checked-in');
+    // --------------------------------------------------------
 
     showSection(1); 
     
