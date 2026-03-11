@@ -18,20 +18,69 @@
             <div class="text-center mb-4">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/IIUM_Logo_2019.svg" width="210" class="mb-4 mt-2" alt="IIUM Logo">
                 <h4 class="fw-bold text-secondary">IIUM Hearing & Speech Clinic</h4>
-                <span class="badge bg-success mt-2">⚡ Vercel Lightning Network Active</span>
+                <span class="badge bg-success mt-2">⚡ Vercel API Bridge Active</span>
             </div>
-            <form>
+            
+            <form id="loginForm">
                 <div class="form-floating mb-3">
-                    <input type="email" class="form-control" placeholder="Email" readonly>
+                    <input type="email" id="loginEmail" class="form-control" placeholder="Email" required>
                     <label>Email Address</label>
                 </div>
                 <div class="form-floating mb-4">
-                    <input type="password" class="form-control" placeholder="Password" readonly>
+                    <input type="password" id="loginPass" class="form-control" placeholder="Password" required>
                     <label>Password</label>
                 </div>
-                <button type="button" class="btn btn-iium w-100 py-2 fs-5" disabled>Awaiting API Connection...</button>
+                <button type="submit" id="loginBtn" class="btn btn-iium w-100 py-2 fs-5">Test API Connection</button>
+                <div id="loginMessage" class="text-center mt-3 small fw-bold"></div>
             </form>
+
         </div>
     </div>
+
+    <script>
+        // THIS IS YOUR NEW GOOGLE API SWITCHBOARD!
+        const API_URL = "https://script.google.com/macros/s/AKfycbzvxrBiL8wvekvnoZaxWZxqLcpHiZQEiSLHOYsxW4q7Qm7VGIu0iCofOjWpDv5Q1H_sBA/exec";
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('loginBtn');
+            const msgBox = document.getElementById('loginMessage');
+            const email = document.getElementById('loginEmail').value;
+            const pass = document.getElementById('loginPass').value;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Contacting Google...';
+            msgBox.className = "text-center mt-3 small fw-bold text-primary";
+            msgBox.innerText = "";
+
+            try {
+                // THE REWIRING: Using standard 'fetch' instead of 'google.script.run'
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'login', email: email, password: pass })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    msgBox.className = "text-center mt-3 fs-6 fw-bold text-success";
+                    msgBox.innerHTML = `✅ CONNECTION SUCCESSFUL!<br><small class="text-muted">Google recognized you as: <strong>${result.role}</strong></small>`;
+                    btn.innerHTML = "Bridge Established!";
+                    btn.classList.replace('btn-iium', 'btn-success');
+                } else {
+                    msgBox.className = "text-center mt-3 small fw-bold text-danger";
+                    msgBox.innerText = "❌ " + result.message;
+                    btn.disabled = false;
+                    btn.innerHTML = "Try Again";
+                }
+            } catch (error) {
+                msgBox.className = "text-center mt-3 small fw-bold text-danger";
+                msgBox.innerText = "⚠️ Network Error: " + error.message;
+                btn.disabled = false;
+                btn.innerHTML = "Try Again";
+            }
+        });
+    </script>
 </body>
 </html>
