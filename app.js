@@ -15,23 +15,22 @@ function createRunner(successCb = null, failCb = null) {
                 try {
                     const response = await fetch(API_URL, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' }, // Safely bypasses CORS
+                        headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({ action: prop, args: args })
                     });
                     const result = await response.json();
                     
                     if (result.success !== false) {
                         if (successCb) {
-                            const dataToPass = (prop === 'loginUser') ? result : result.data;
+                            // Bulletproof unpacking: Always extracts the exact data package
+                            const dataToPass = (result.data !== undefined) ? result.data : result;
                             successCb(dataToPass);
                         }
                     } else {
                         if (failCb) failCb(new Error(result.message));
-                        else console.error("Backend Error:", result.message);
                     }
                 } catch (error) {
                     if (failCb) failCb(error);
-                    else console.error("Network Error:", error);
                 }
             };
         }
