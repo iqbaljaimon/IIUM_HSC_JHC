@@ -1985,18 +1985,33 @@ function loadApptGrid() {
        return;
      }
 
+     // --- NEW: DISPLAY THE ACADEMIC WEEK BANNER ---
      let fullHtml = ''; 
+     if (weekData[0] && weekData[0].weekLabel) {
+         fullHtml += `<div class="alert alert-warning border-warning shadow-sm py-2 mb-4 fw-bold text-center fs-5 text-dark" style="background-color: #fff3cd; letter-spacing: 1px;">
+                        <i class="bi bi-calendar3-range text-warning me-2"></i> ${weekData[0].weekLabel}
+                      </div>`;
+     }
 
      weekData.forEach(day => {
          const isSelectedDate = day.dateStr === dateInput.value;
-         const headerClass = isSelectedDate ? 'bg-primary text-white' : 'bg-light text-dark border-bottom border-2';
+         let headerClass = isSelectedDate ? 'bg-primary text-white' : 'bg-light text-dark border-bottom border-2';
+         
+         // --- NEW: ADD RED BORDER IF CLINICAL EXAM ---
+         let cardBorder = day.hasClinicalExam ? 'border-danger border-2' : 'border-0';
+         let examBadge = day.hasClinicalExam ? `<span class="badge bg-danger shadow-sm ms-3 fs-6"><i class="bi bi-journal-medical me-1"></i> CLINICAL EXAM TODAY</span>` : '';
 
          let tableHtml = `
-            <div class="card border-0 shadow-sm mb-4">
-              <div class="card-header ${headerClass} py-2 fw-bold d-flex justify-content-between align-items-center">
-                 <span><i class="bi bi-calendar-event me-2"></i> ${day.display}</span>
-                 ${day.isHoliday ? `<span class="badge bg-danger">${day.holidayName}</span>` : ''}
-                 ${isSelectedDate && !day.isHoliday ? '<span class="badge bg-warning text-dark shadow-sm">Selected Date</span>' : ''}
+             <div class="card ${cardBorder} shadow-sm mb-4">
+              <div class="card-header ${headerClass} py-2 fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
+                 <div>
+                     <span class="fs-6"><i class="bi bi-calendar-event me-2"></i> ${day.display}</span>
+                     ${examBadge}
+                 </div>
+                 <div>
+                     ${day.isHoliday ? `<span class="badge bg-danger">${day.holidayName}</span>` : ''}
+                     ${isSelectedDate && !day.isHoliday ? '<span class="badge bg-warning text-dark shadow-sm">Selected Date</span>' : ''}
+                 </div>
               </div>
               <div class="table-responsive">
                 <table class="table table-borderless table-sm text-center align-middle mb-0" style="font-size: 0.8rem; border-collapse: separate; border-spacing: 0 8px;">
@@ -2029,7 +2044,6 @@ function loadApptGrid() {
                                      <i class="bi bi-plus text-success" style="line-height: 28px;"></i>
                                    </div>`;
                        } else if (slotData.status === 'Occupied') {
-                           // THE TOOLTIP MAGIC IS IN THE 'title' TAG BELOW!
                            return `<div class="w-50 h-100 ${borderClass} bg-primary text-white" 
                                      style="cursor: help; line-height: 28px; font-size: 0.75rem; font-weight: bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" 
                                      title="${slotData.info}">
