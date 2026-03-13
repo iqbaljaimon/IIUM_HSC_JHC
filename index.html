@@ -209,7 +209,9 @@
                 <a class="nav-link" id="nav-rooms-mob" onclick="showPage('rooms'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-door-open me-2"></i> Rooms Booking</a>
                 <a class="nav-link" onclick="showPage('case-search'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-search-heart me-2"></i> Case Search</a>
                 <a class="nav-link" id="nav-hsp-mob" onclick="showPage('hsp'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-person-bounding-box me-2"></i> HSP Database</a>
-                <a class="nav-link mt-4 text-danger fw-bold" onclick="performLogout()"><i class="bi bi-box-arrow-left me-2"></i> Logout</a>
+                <a href="#" class="nav-link admin-only" onclick="openAnalyticsDashboard()"><i class="bi bi-graph-up"></i> Analytics Dashboard</a>
+
+              <a class="nav-link mt-4 text-danger fw-bold" onclick="performLogout()"><i class="bi bi-box-arrow-left me-2"></i> Logout</a>
             </nav>
         </div>
       </div>
