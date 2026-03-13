@@ -4198,3 +4198,97 @@ showPage = function(pageId) {
         triggerStatsFetch();
     }
 };
+
+// ==========================================
+// CLINICAL ANALYTICS DASHBOARD LOGIC
+// ==========================================
+let activeCharts = {}; // Memory to destroy old charts before drawing new ones
+
+function openAnalyticsDashboard() {
+    showPage('page-analytics');
+    
+    // Set default month/year to today
+    const now = new Date();
+    document.getElementById('analyticsMonth').value = now.getMonth() + 1;
+    document.getElementById('analyticsYear').value = now.getFullYear();
+    
+    loadAnalyticsData();
+}
+
+function loadAnalyticsData() {
+    const month = document.getElementById('analyticsMonth').value;
+    const year = document.getElementById('analyticsYear').value;
+    
+    document.getElementById('analytics-loader').classList.remove('d-none');
+    document.getElementById('analytics-charts').classList.add('d-none');
+
+    google.script.run.withSuccessHandler(stats => {
+        // 1. Update KPI Scorecards
+        document.getElementById('kpi-visits').innerText = stats.kpi.totalVisits;
+        document.getElementById('kpi-new').innerText = stats.kpi.newCases;
+        document.getElementById('kpi-noshow').innerText = stats.kpi.noShows;
+        document.getElementById('kpi-revenue').innerText = "RM " + stats.kpi.totalRevenue.toFixed(2);
+
+        // 2. Draw Charts
+        drawChart('chart-volume', 'line', 'Visits', stats.charts.volumeTrend, ['#0d6efd']);
+        drawChart('chart-demographics', 'pie', 'Age Group', stats.charts.demographics, ['#198754', '#ffc107', '#0dcaf0', '#dc3545']);
+        drawChart('chart-diagnoses', 'bar', 'Cases', stats.charts.diagnoses, ['#6f42c1'], true); // Horizontal
+        drawChart('chart-tester', 'bar', 'Cases', stats.charts.tester, ['#fd7e14']);
+        drawChart('chart-attendance', 'doughnut', 'Status', stats.charts.attendance, ['#198754', '#dc3545', '#6c757d']);
+        drawChart('chart-referrals', 'pie', 'Source', stats.charts.referrals, ['#0d6efd', '#20c997', '#ffc107', '#e83e8c']);
+        drawChart('chart-revenue', 'doughnut', 'Revenue (RM)', stats.charts.revenueCategory, ['#212529', '#c5a065', '#0d6efd']);
+
+        document.getElementById('analytics-loader').classList.add('d-none');
+        document.getElementById('analytics-charts').classList.remove('d-none');
+        
+    }).withFailureHandler(err => {
+        alert("Failed to load Analytics: " + err.message);
+        document.getElementById('analytics-loader').classList.add('d-none');
+    }).getDashboardAnalytics(month, year);
+}
+
+// Universal Chart Painter
+function drawChart(canvasId, type, datasetLabel, dataObj, colorPalette, isHorizontal = false) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    // Destroy existing chart to prevent glitching
+    if (activeCharts[canvasId]) {
+        activeCharts[canvasId].destroy();
+    }
+
+    const labels = Object.keys(dataObj);
+    const dataValues = Object.values(dataObj);
+
+    // If there is no data, handle gracefully
+    if (labels.length === 0) {
+        activeCharts[canvasId] = new Chart(ctx, { type: 'bar', data: { labels: ['No Data'], datasets: [{ data: [0] }] } });
+        return;
+    }
+
+    const config = {
+        type: type,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: datasetLabel,
+                data: dataValues,
+                backgroundColor: type === 'line' ? colorPalette[0] + '33' : colorPalette,
+                borderColor: colorPalette,
+                borderWidth: 1,
+                fill: type === 'line',
+                tension: 0.3 // Smooth curves for line charts
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: isHorizontal ? 'y' : 'x',
+            plugins: {
+                legend: { display: type !== 'bar' && type !== 'line' && type !== 'radar' } // Hide legend for bars/lines
+            }
+        }
+    };
+
+    activeCharts[canvasId] = new Chart(ctx, config);
+}
