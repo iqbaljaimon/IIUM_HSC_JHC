@@ -2266,6 +2266,7 @@ function confirmBooking() {
 
   // 3. Build the Payload
   const payload = {
+    apptType: document.getElementById('modalApptType').value,
     date: document.getElementById('bk_date').value,
     time: document.getElementById('bk_time').value,
     slot: document.getElementById('bk_slot').value,
