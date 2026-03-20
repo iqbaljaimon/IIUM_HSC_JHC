@@ -1,7 +1,7 @@
 // ==========================================
 // VERCEL TO GOOGLE APPS SCRIPT BRIDGE
 // ==========================================
-const GAS_URL = "YOUR_GOOGLE_WEB_APP_URL_HERE"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzvxrBiL8wvekvnoZaxWZxqLcpHiZQEiSLHOYsxW4q7Qm7VGIu0iCofOjWpDv5Q1H_sBA/exec"; 
 
 const google = {
   script: {
