@@ -1,47 +1,8 @@
-// ==========================================
-// VERCEL API TRANSLATOR BRIDGE
-// ==========================================
-const API_URL = "https://script.google.com/macros/s/AKfycbzvxrBiL8wvekvnoZaxWZxqLcpHiZQEiSLHOYsxW4q7Qm7VGIu0iCofOjWpDv5Q1H_sBA/exec";
-
-const google = { script: { get run() { return createRunner(); } } };
-
-function createRunner(successCb = null, failCb = null) {
-    return new Proxy({}, {
-        get: function(target, prop) {
-            if (prop === 'withSuccessHandler') return function(cb) { return createRunner(cb, failCb); };
-            if (prop === 'withFailureHandler') return function(cb) { return createRunner(successCb, cb); };
-            
-            return async function(...args) {
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({ action: prop, args: args })
-                    });
-                    const result = await response.json();
-                    
-                    if (result.success !== false) {
-                        if (successCb) {
-                            // Bulletproof unpacking: Always extracts the exact data package
-                            const dataToPass = (result.data !== undefined) ? result.data : result;
-                            successCb(dataToPass);
-                        }
-                    } else {
-                        if (failCb) failCb(new Error(result.message));
-                    }
-                } catch (error) {
-                    if (failCb) failCb(error);
-                }
-            };
-        }
-    });
-}
-// ==========================================
   // --- GLOBAL VARIABLES ---
   let globalQueueData = [];
   let currentPatientData = {};
   let currentViewMode = 'day';
-  let currentUser = ""; 
+  let currentUser = "<?!= Session.getActiveUser().getEmail(); ?>"; 
   let currentVisitId = null;
   let pendingBookingItem = null;
   let currentUserRole = "";
@@ -162,6 +123,28 @@ function createRunner(successCb = null, failCb = null) {
           });
       }
 
+      // --- NEW: MODAL IC AUTO-FORMATTER & AGE CALCULATOR ---
+      const bkIcInput = document.getElementById('bk_ic_search');
+      if(bkIcInput) {
+          bkIcInput.addEventListener('input', function(e) {
+              let val = e.target.value.replace(/\D/g, ''); 
+              if (val.length > 12) val = val.slice(0, 12);
+              
+              if (val.length > 8) {
+                  val = val.slice(0, 6) + '-' + val.slice(6, 8) + '-' + val.slice(8);
+              } else if (val.length > 6) {
+                  val = val.slice(0, 6) + '-' + val.slice(6);
+              }
+              e.target.value = val;
+              
+              // Auto-calculate age instantly!
+              if (val.replace(/\D/g, '').length >= 6) {
+                  const ageField = document.getElementById('bk_age');
+                  if(ageField) ageField.value = calculateAgeFrontend(val);
+              }
+          });
+      }
+
       const phoneIds = ['inp_contact', 'inp_ecContact'];
       phoneIds.forEach(id => {
           const el = document.getElementById(id);
@@ -208,6 +191,62 @@ function createRunner(successCb = null, failCb = null) {
           }
       });
 
+      // --- NEW: AUTO-LOGIN FOR MOBILE APK ---
+      const savedEmail = localStorage.getItem('iium_hsc_email');
+      const savedPass = localStorage.getItem('iium_hsc_pass');
+      
+      if (savedEmail && savedPass) {
+          // Fill the hidden boxes
+          document.getElementById('loginEmail').value = savedEmail;
+          document.getElementById('loginPass').value = savedPass;
+          
+          // Change the button text so the user knows it's working
+          const loginBtn = document.querySelector('#login-view button[type="submit"]');
+          if (loginBtn) {
+              loginBtn.disabled = true;
+              loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Auto-Logging In...';
+          }
+          
+          // Secretly run the login function in the background
+          google.script.run.withSuccessHandler(res => {
+              if(res.success) {
+                  currentUser = res.email;
+                  currentUserRole = res.role; 
+                  
+                  document.getElementById('login-view').classList.add('d-none');
+                  document.getElementById('app-view').classList.remove('d-none');
+                  
+                  let profileHtml = `${res.email}<br><span class="badge bg-secondary mt-1">${res.role}</span>`;
+                  if (document.getElementById('userDisplay')) document.getElementById('userDisplay').innerHTML = profileHtml;
+                  if (document.getElementById('userDisplayMobile')) document.getElementById('userDisplayMobile').innerHTML = profileHtml;
+                  
+                  document.getElementById('queueDate').valueAsDate = new Date();
+                  document.getElementById('inp_visitDate').valueAsDate = new Date();
+
+                  document.querySelectorAll('.sidebar .nav-item, .sidebar a.nav-link, #sidebar .nav-item').forEach(el => el.style.display = ''); 
+                  
+                  applyRBAC(); 
+                  loadPrices();
+                  
+                  if (window.START_PAGE === 'rooms') {
+                      showPage('rooms');
+                  } else {
+                      showPage('dashboard'); 
+                  }
+              } else {
+                  // If password was changed by admin, wipe the old memory!
+                  localStorage.removeItem('iium_hsc_email');
+                  localStorage.removeItem('iium_hsc_pass');
+              }
+              
+              if (loginBtn) {
+                  loginBtn.disabled = false;
+                  loginBtn.innerHTML = "Login";
+              }
+          }).loginUser(savedEmail, savedPass);
+      }
+      // --------------------------------------
+
 }); // <--- THIS CLOSES DOMContentLoaded
 
   function handleLogin(e) {
@@ -222,14 +261,21 @@ function createRunner(successCb = null, failCb = null) {
     
     google.script.run.withSuccessHandler(res => {
       if(res.success) {
+        // --- NEW: SAVE TO PHONE MEMORY ---
+        localStorage.setItem('iium_hsc_email', email);
+        localStorage.setItem('iium_hsc_pass', pass);
+        // ---------------------------------
+
         currentUser = res.email;
         currentUserRole = res.role; // <--- Capture the role from the Users tab
         
         document.getElementById('login-view').classList.add('d-none');
         document.getElementById('app-view').classList.remove('d-none');
         
-        // Display Role nicely under the email
-        document.getElementById('userDisplay').innerHTML = `${res.email}<br><span class="badge bg-secondary mt-1">${res.role}</span>`;
+        // Display Role nicely under the email on BOTH menus
+let profileHtml = `${res.email}<br><span class="badge bg-secondary mt-1">${res.role}</span>`;
+if (document.getElementById('userDisplay')) document.getElementById('userDisplay').innerHTML = profileHtml;
+if (document.getElementById('userDisplayMobile')) document.getElementById('userDisplayMobile').innerHTML = profileHtml;
         
         document.getElementById('queueDate').valueAsDate = new Date();
         document.getElementById('inp_visitDate').valueAsDate = new Date();
@@ -274,11 +320,11 @@ function loginAsGuest() {
         let appEl = document.getElementById('app-view');
         if (appEl) appEl.classList.remove('d-none');
         
-        // 3. Set Profile Badges safely (Using exact ID from handleLogin)
-        let userDisp = document.getElementById('userDisplay');
-        if (userDisp) {
-            userDisp.innerHTML = `Guest User<br><span class="badge bg-secondary mt-1">Non-Clinical Year Student</span>`;
-        }
+        // 3. Set Profile Badges safely on BOTH menus
+let guestHtml = `Guest User<br><span class="badge bg-secondary mt-1">Non-Clinical Year Student</span>`;
+if (document.getElementById('userDisplay')) document.getElementById('userDisplay').innerHTML = guestHtml;
+if (document.getElementById('userDisplayMobile')) document.getElementById('userDisplayMobile').innerHTML = guestHtml;
+        
         
         // 4. Hide all sidebar items except Rooms and Logout
         document.querySelectorAll('.sidebar .nav-item, .sidebar a.nav-link, #sidebar .nav-item').forEach(el => {
@@ -404,7 +450,8 @@ function showPage(pageId) {
     window.scrollTo(0,0);
 }
 
-// --- START NEW PATIENT (SIDEBAR BUTTON) ---
+
+ // --- START NEW PATIENT (SIDEBAR BUTTON) ---
 function startNewPatient() {
     currentVisitId = null; 
     
@@ -415,29 +462,6 @@ function startNewPatient() {
     
     // FIX: Set Date to Today by default
     document.getElementById('inp_visitDate').valueAsDate = new Date();
-
-    // --- NEW: DEEP UI RESET (Fixes the "Ghost Data" bug) ---
-    // 1. Reset Estimated Cost to zero
-    const totalDisp = document.getElementById('displayTotal');
-    if (totalDisp) totalDisp.innerText = "0.00";
-    
-    // 2. Hide Referral Box (Default is Follow-up)
-    toggleReferral(false); 
-    
-    // 3. Clear Dynamic Findings Boxes
-    const findingsContainer = document.getElementById('dynamic-findings-container');
-    if (findingsContainer) findingsContainer.innerHTML = '';
-    
-    // 4. Hide "Other" text boxes just in case they were left open
-    const planOtherBox = document.getElementById('box-plan-other');
-    if (planOtherBox) { planOtherBox.classList.add('d-none'); document.getElementById('inp_planOtherDetail').value = ''; }
-    
-    const refOtherBox = document.getElementById('box-ref-others');
-    if (refOtherBox) { refOtherBox.classList.add('d-none'); document.getElementById('inp_refOtherDetail').value = ''; }
-    
-    // 5. Reset Attendance UI to default (Show Clinical section, hide No-show reason)
-    handleAttendance('Checked-in');
-    // --------------------------------------------------------
 
     showSection(1); 
     
@@ -1999,7 +2023,7 @@ function loadApptGrid() {
          
          // --- NEW: ADD RED BORDER IF CLINICAL EXAM ---
          let cardBorder = day.hasClinicalExam ? 'border-danger border-2' : 'border-0';
-         let examBadge = day.hasClinicalExam ? `<span class="badge bg-danger shadow-sm ms-3 fs-6"><i class="bi bi-journal-medical me-1"></i> CLINICAL EXAM TODAY</span>` : '';
+         let examBadge = day.hasClinicalExam ? `<span class="badge bg-danger shadow-sm ms-3 fs-6"><i class="bi bi-journal-medical me-1"></i> CLINICAL EXAM SCHEDULED</span>` : '';
 
          let tableHtml = `
              <div class="card ${cardBorder} shadow-sm mb-4">
@@ -2168,10 +2192,11 @@ function injectPendingDataToModal(item) {
   }
 }
 
-// --- MANUAL SEARCH (Fires ONLY when the blue search button is clicked) ---
+// --- MANUAL SEARCH (Allows New Patients) ---
 function fetchPatientContext(searchTerm) {
-  if (!searchTerm || searchTerm.length < 4) {
-      showToast("Please enter at least 4 characters to search.", "warning");
+  let cleanIC = String(searchTerm).replace(/\D/g, '');
+  if (cleanIC.length < 6) {
+      showToast("Please enter a valid IC number to search.", "warning");
       return;
   }
   
@@ -2189,8 +2214,7 @@ function fetchPatientContext(searchTerm) {
       if (data && data.found) {
         document.getElementById('bk_name').value = data.name || '';
         document.getElementById('bk_contact').value = data.contact || '';
-        document.getElementById('bk_dob').value = data.dob || '';
-        document.getElementById('bk_age').value = data.age || '';
+        document.getElementById('bk_age').value = data.age || calculateAgeFrontend(cleanIC);
         document.getElementById('bk_type').value = data.lastCase || 'Follow-up';
         document.getElementById('bk_prev_visit').innerText = data.lastVisit || 'None';
         
@@ -2200,19 +2224,20 @@ function fetchPatientContext(searchTerm) {
         showToast("Patient found and loaded!", "success");
         
       } else {
-        // We ONLY erase boxes if the user manually clicks the blue search button and it fails.
-        showToast("Patient not found. Check spelling or IC.", "error");
+        // SMART NEW PATIENT HANDLING
+        showToast("Patient not found. Proceeding as New Patient.", "info");
         document.getElementById('bk_name').value = '';
         document.getElementById('bk_contact').value = '';
-        document.getElementById('bk_age').value = '';
-        document.getElementById('bk_prev_visit').innerText = '-';
+        document.getElementById('bk_age').value = calculateAgeFrontend(cleanIC);
+        document.getElementById('bk_type').value = 'New Case';
+        document.getElementById('bk_prev_visit').innerText = 'New Patient';
       }
     })
     .withFailureHandler(error => {
         if (icon) icon.className = 'bi bi-search'; 
         handleServerFailure(error);
     })
-    .getPatientContext(searchTerm);
+    .getPatientContext(cleanIC);
 }
 
 // --- SUBMIT BOOKING ---
@@ -2266,18 +2291,17 @@ function confirmBooking() {
 
   // 3. Build the Payload
   const payload = {
-    apptType: document.getElementById('modalApptType').value,
     date: document.getElementById('bk_date').value,
     time: document.getElementById('bk_time').value,
     slot: document.getElementById('bk_slot').value,
     duration: document.getElementById('bk_duration').value, 
     roomList: roomList,  // Passes the exact rooms to the backend
-    ic: document.getElementById('bk_ic_search').value,
+    ic: document.getElementById('bk_ic_search').value.replace(/\D/g, ''), // <--- Strips dashes!
     name: document.getElementById('bk_name').value,
     contact: document.getElementById('bk_contact').value,
-    dob: document.getElementById('bk_dob').value,
     age: document.getElementById('bk_age').value,
     supervisor: document.getElementById('bk_sup').value,
+    apptType: document.getElementById('modalApptType').value,
     caseType: document.getElementById('bk_type').value,
     plan: document.getElementById('bk_plan').value,
     prevVisit: document.getElementById('bk_prev_visit').innerText,
@@ -2711,21 +2735,19 @@ function applyRBAC() {
     if (document.getElementById('nav-rooms')) document.getElementById('nav-rooms').style.display = 'block';
     if (document.getElementById('nav-rooms-mob')) document.getElementById('nav-rooms-mob').style.display = 'block';
 
-    // Show Analytics only for Admin
+    // Show Analytics only for Admin (Desktop & Mobile)
+    const isAdmin = (role === 'admin');
     const analyticsNav = document.getElementById('nav-analytics');
-    if (analyticsNav) {
-        analyticsNav.style.display = (role === 'admin') ? 'block' : 'none';
-    }
+    const analyticsNavMob = document.getElementById('nav-analytics-mob');
+    if (analyticsNav) analyticsNav.style.display = isAdmin ? 'block' : 'none';
+    if (analyticsNavMob) analyticsNavMob.style.display = isAdmin ? 'block' : 'none';
 
-    // Restrict HSP Analytics to Admin and Staff only
+    // Restrict HSP Analytics to Admin and Staff only (Desktop & Mobile)
+    const isNotStudent = (role !== 'student');
     const hspNavItem = document.getElementById('nav-hsp-analytics');
-    if (hspNavItem) {
-        if (role === 'Student') {
-            hspNavItem.style.display = 'none'; // Hide for students
-        } else {
-            hspNavItem.style.display = 'block'; // Show for Admin/Staff
-        }
-    }
+    const hspNavItemMob = document.getElementById('nav-hsp-analytics-mob');
+    if (hspNavItem) hspNavItem.style.display = isNotStudent ? 'block' : 'none';
+    if (hspNavItemMob) hspNavItemMob.style.display = isNotStudent ? 'block' : 'none';
 
     // 2. CENSUS FORM RESTRICTIONS (Section 1: Demographics)
     // Students can view but cannot edit the core patient identity data.
@@ -3246,6 +3268,11 @@ function resumeOldDraft(ic, isoDate) {
 // MANUAL LOGOUT
 // ==========================================
 function performLogout() {
+    // --- NEW: WIPE PHONE MEMORY ---
+    localStorage.removeItem('iium_hsc_email');
+    localStorage.removeItem('iium_hsc_pass');
+    // ------------------------------
+    
     // 1. Clear user data
     currentUser = null;
     currentUserRole = "";
@@ -4199,97 +4226,3 @@ showPage = function(pageId) {
         triggerStatsFetch();
     }
 };
-
-// ==========================================
-// CLINICAL ANALYTICS DASHBOARD LOGIC
-// ==========================================
-let activeCharts = {}; // Memory to destroy old charts before drawing new ones
-
-function openAnalyticsDashboard() {
-    showPage('page-analytics');
-    
-    // Set default month/year to today
-    const now = new Date();
-    document.getElementById('analyticsMonth').value = now.getMonth() + 1;
-    document.getElementById('analyticsYear').value = now.getFullYear();
-    
-    loadAnalyticsData();
-}
-
-function loadAnalyticsData() {
-    const month = document.getElementById('analyticsMonth').value;
-    const year = document.getElementById('analyticsYear').value;
-    
-    document.getElementById('analytics-loader').classList.remove('d-none');
-    document.getElementById('analytics-charts').classList.add('d-none');
-
-    google.script.run.withSuccessHandler(stats => {
-        // 1. Update KPI Scorecards
-        document.getElementById('kpi-visits').innerText = stats.kpi.totalVisits;
-        document.getElementById('kpi-new').innerText = stats.kpi.newCases;
-        document.getElementById('kpi-noshow').innerText = stats.kpi.noShows;
-        document.getElementById('kpi-revenue').innerText = "RM " + stats.kpi.totalRevenue.toFixed(2);
-
-        // 2. Draw Charts
-        drawChart('chart-volume', 'line', 'Visits', stats.charts.volumeTrend, ['#0d6efd']);
-        drawChart('chart-demographics', 'pie', 'Age Group', stats.charts.demographics, ['#198754', '#ffc107', '#0dcaf0', '#dc3545']);
-        drawChart('chart-diagnoses', 'bar', 'Cases', stats.charts.diagnoses, ['#6f42c1'], true); // Horizontal
-        drawChart('chart-tester', 'bar', 'Cases', stats.charts.tester, ['#fd7e14']);
-        drawChart('chart-attendance', 'doughnut', 'Status', stats.charts.attendance, ['#198754', '#dc3545', '#6c757d']);
-        drawChart('chart-referrals', 'pie', 'Source', stats.charts.referrals, ['#0d6efd', '#20c997', '#ffc107', '#e83e8c']);
-        drawChart('chart-revenue', 'doughnut', 'Revenue (RM)', stats.charts.revenueCategory, ['#212529', '#c5a065', '#0d6efd']);
-
-        document.getElementById('analytics-loader').classList.add('d-none');
-        document.getElementById('analytics-charts').classList.remove('d-none');
-        
-    }).withFailureHandler(err => {
-        alert("Failed to load Analytics: " + err.message);
-        document.getElementById('analytics-loader').classList.add('d-none');
-    }).getDashboardAnalytics(month, year);
-}
-
-// Universal Chart Painter
-function drawChart(canvasId, type, datasetLabel, dataObj, colorPalette, isHorizontal = false) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-
-    // Destroy existing chart to prevent glitching
-    if (activeCharts[canvasId]) {
-        activeCharts[canvasId].destroy();
-    }
-
-    const labels = Object.keys(dataObj);
-    const dataValues = Object.values(dataObj);
-
-    // If there is no data, handle gracefully
-    if (labels.length === 0) {
-        activeCharts[canvasId] = new Chart(ctx, { type: 'bar', data: { labels: ['No Data'], datasets: [{ data: [0] }] } });
-        return;
-    }
-
-    const config = {
-        type: type,
-        data: {
-            labels: labels,
-            datasets: [{
-                label: datasetLabel,
-                data: dataValues,
-                backgroundColor: type === 'line' ? colorPalette[0] + '33' : colorPalette,
-                borderColor: colorPalette,
-                borderWidth: 1,
-                fill: type === 'line',
-                tension: 0.3 // Smooth curves for line charts
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: isHorizontal ? 'y' : 'x',
-            plugins: {
-                legend: { display: type !== 'bar' && type !== 'line' && type !== 'radar' } // Hide legend for bars/lines
-            }
-        }
-    };
-
-    activeCharts[canvasId] = new Chart(ctx, config);
-}
