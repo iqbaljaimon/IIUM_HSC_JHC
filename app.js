@@ -1,3 +1,56 @@
+// ==========================================
+// VERCEL TO GOOGLE APPS SCRIPT BRIDGE
+// ==========================================
+const GAS_URL = "YOUR_GOOGLE_WEB_APP_URL_HERE"; 
+
+const google = {
+  script: {
+    run: {
+      withSuccessHandler: function(successCallback) {
+        return createGasProxy(successCallback, null);
+      },
+      withFailureHandler: function(failureCallback) {
+        return createGasProxy(null, failureCallback);
+      }
+    }
+  }
+};
+
+function createGasProxy(successCallback, failureCallback) {
+  return new Proxy({}, {
+    get: function(target, functionName) {
+      // Allow chaining
+      if (functionName === 'withSuccessHandler') {
+        return function(newSuccessCallback) { return createGasProxy(newSuccessCallback, failureCallback); };
+      }
+      if (functionName === 'withFailureHandler') {
+        return function(newFailureCallback) { return createGasProxy(successCallback, newFailureCallback); };
+      }
+      
+      // Execute the actual function call via HTTP POST
+      return function(...args) {
+        fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: functionName, args: args })
+        })
+        .then(res => res.json())
+        .then(res => {
+          if (res.success) {
+            if (successCallback) successCallback(res.data);
+          } else {
+            if (failureCallback) failureCallback(new Error(res.message));
+            else console.error("GAS Error:", res.message);
+          }
+        })
+        .catch(err => {
+          if (failureCallback) failureCallback(err);
+          else console.error("Fetch Error:", err);
+        });
+      };
+    }
+  });
+}
+
   // --- GLOBAL VARIABLES ---
   let globalQueueData = [];
   let currentPatientData = {};
