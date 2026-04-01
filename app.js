@@ -55,7 +55,7 @@ function createGasProxy(successCallback, failureCallback) {
   let globalQueueData = [];
   let currentPatientData = {};
   let currentViewMode = 'day';
-  let currentUser = "<?!= Session.getActiveUser().getEmail(); ?>"; 
+  let currentUser = ""; 
   let currentVisitId = null;
   let pendingBookingItem = null;
   let currentUserRole = "";
