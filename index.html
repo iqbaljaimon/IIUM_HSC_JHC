@@ -239,9 +239,9 @@
                 <a class="nav-link" id="nav-casesearch" onclick="showPage('case-search')"><i class="bi bi-search-heart me-2"></i> Case Search</a>
                 <a class="nav-link" id="nav-hsp" onclick="showPage('hsp')"><i class="bi bi-person-bounding-box me-2"></i> HSP Database</a>
                 
-                <a class="nav-link text-warning mt-3 border-top pt-3" id="nav-analytics" href="https://lookerstudio.google.com/reporting/4cdb0dcc-21a9-4713-9b08-5f144d2cbed0/page/QqnpF" target="_blank" style="display:none;">
-                   <i class="bi bi-bar-chart-fill me-2"></i> Analytics Dashboard
-                </a>
+                <a class="nav-link text-warning mt-3 border-top pt-3" id="nav-analytics" style="cursor: pointer; display:none;" onclick="openAnalyticsDashboard()">
+    <i class="bi bi-bar-chart-fill me-2"></i> Analytics Dashboard
+</a>
                 <a class="nav-link text-warning" id="nav-hsp-analytics" style="cursor: pointer; display:none;" onclick="showPage('hsp-analytics')">
            <i class="bi bi-graph-up me-2"></i> HSP Analytics
         </a>
@@ -251,7 +251,7 @@
 
              <div class="mt-auto w-100 p-3 text-center text-white-50 small border-top border-secondary" style="font-size: 0.75rem;">
                 <strong>IIUM Hearing & Speech Clinic</strong><br>
-                Version 1.0.0 &copy; 2026<br>
+                Version 1.0.4 &copy; 2026<br>
                 Dept. of Audiology & Speech Language Pathology, Kulliyyah of Allied Health Sciences
              </div>
           </div>
@@ -307,6 +307,137 @@
                   </div>
               </div>
             </div>
+
+            <div id="page-analytics" class="page-view d-none">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="text-teal mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Analytic Dashboard</h4>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body bg-light rounded">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-bold">Quick Select</label>
+                    <select id="analyticsPreset" class="form-select" onchange="applyAnalyticsPreset()">
+                        <option value="custom">Custom...</option>
+                        <option value="thisMonth">This Month</option>
+                        <option value="lastMonth">Last Month</option>
+                        <option value="thisQuarter">This Quarter</option>
+                        <option value="thisYear">This Year</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-bold">Start Date</label>
+                    <input type="date" id="analyticsStart" class="form-control" onchange="document.getElementById('analyticsPreset').value='custom'">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-bold">End Date</label>
+                    <input type="date" id="analyticsEnd" class="form-control" onchange="document.getElementById('analyticsPreset').value='custom'">
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="analyticsCompare" checked>
+                        <label class="form-check-label text-muted fw-bold" for="analyticsCompare">
+                            Compare to previous period
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button class="btn btn-teal w-100" onclick="loadAdvancedAnalytics()">
+                        <i class="bi bi-arrow-repeat me-1"></i> Generate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body">
+            <h6 class="text-muted mb-1">Total Scheduled</h6>
+            <h3 class="mb-0 text-dark" id="kpiVisits">-</h3>
+            <small id="popVisits" class="text-muted">vs previous period</small>
+        </div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body">
+            <h6 class="text-muted mb-1">Attendance Rate</h6>
+            <h3 class="mb-0 text-dark" id="kpiAttRate">-</h3>
+            <small id="popAttRate" class="text-muted">vs previous period</small>
+        </div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm border-0 h-100"><div class="card-body">
+            <h6 class="text-muted mb-1">Total Collected</h6>
+            <h3 class="mb-0 text-success" id="kpiRevenueCollected">-</h3>
+            <div class="small fw-bold text-muted mt-1" id="kpiRevenueSystem">Billed: RM 0.00</div>
+            <small id="popRevenue" class="text-muted">vs previous period</small>
+        </div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body">
+            <h6 class="text-muted mb-1">Top Procedure</h6>
+            <h5 class="mb-0 text-primary text-truncate" id="kpiTopProc" title="-">-</h5>
+            <small id="popTopProc" class="text-muted">Most frequently performed</small>
+        </div></div></div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted fw-bold mb-3">
+    Attendance Breakdown (New-Case vs Follow-up)
+    <span id="lblTotalAttended" class="badge bg-teal ms-2 rounded-pill" style="background-color: #007a7e;">0</span>
+</h6>
+<div style="position: relative; height: 300px; width: 100%;">
+    <canvas id="chartCaseType"></canvas>
+</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted fw-bold mb-3">Patient Demographics</h6>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="chartDemo"></canvas>
+                </div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted fw-bold mb-3">Top Procedures (Revenue)</h6>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="chartProcedures"></canvas>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted fw-bold mb-3"><i class="bi bi-diagram-3-fill me-2"></i>Patient Referral Sources</h6>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="chartReferrals"></canvas>
+                </div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-danger fw-bold mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Top Reasons for Non-Attendance
+                    <span id="lblTotalNoShows" class="badge bg-danger ms-2 rounded-pill">0</span>
+                </h6>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="chartNoShow"></canvas>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted fw-bold mb-3">Supervisor Workload (Total Hours)</h6>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="chartSupervisor"></canvas>
+                </div>
+            </div></div>
+        </div>
+    </div>
+</div>
 
             <div id="patient-dashboard" class="page-view">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
@@ -519,7 +650,7 @@
                 <div id="sec-3" class="form-section">
                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center border-bottom pb-2 mb-3 gap-2">
                       <h5 class="text-iium mb-0">Procedures & Billing (Clinician)</h5>
-                      <div class="bg-light p-2 rounded border fs-6 text-muted">Est. Cost: <strong class="text-dark">RM <span id="displayTotal">0.00</span></strong></div>
+                      <div class="bg-light p-2 rounded border fs-6 text-muted">Est. Charges: <strong class="text-dark">RM <span id="displayTotal">0.00</span></strong></div>
                    </div>
 
                    <div class="card p-3 bg-light mb-3" style="max-height: 400px; overflow-y: auto;">
@@ -666,12 +797,16 @@
                       </div>
                       <div id="box-ref-others" class="mt-2 d-none"><input type="text" id="inp_refOtherDetail" class="form-control form-control-sm" placeholder="Specify other referral..."></div>
                    </div>
-                   <div class="mb-4"><label class="fw-bold">Final Remarks</label><textarea id="inp_remarks" class="form-control" rows="2" placeholder="Any internal notes..."></textarea></div>
+                   <div class="mb-3">
+                      <label class="fw-bold text-dark">Management</label>
+                      <textarea id="inp_management" class="form-control border-primary" rows="3" </textarea>
+                   </div>
+                   <div class="mb-4"><label class="fw-bold">Final Remarks</label><textarea id="inp_remarks" class="form-control" rows="2" placeholder="Any additional notes..."></textarea></div>
                    
                    <div class="d-flex flex-column gap-2 mb-3">
                       <button type="button" id="btnSaveDraft5" class="btn btn-outline-success btn-lg" onclick="submitCensusV2('Draft')">
                         <span id="spinDraft5" class="spinner-border spinner-border-sm d-none" role="status"></span>
-                        <span id="txtDraft5"><i class="bi bi-save"></i> Save as Draft (Finish Later)</span>
+                        <span id="txtDraft5"><i class="bi bi-save"></i> Save as Draft (Procedures & Next Visit Plan)</span>
                       </button>
                       <button type="button" id="btnSubmitFinal" class="btn btn-iium btn-lg py-3 shadow" onclick="submitCensusV2('Completed')">
                         <i class="bi bi-check2-circle"></i> Submit & Complete Census
@@ -692,7 +827,7 @@
                     <span class="input-group-text bg-light"><i class="bi bi-calendar-event"></i></span>
                     <input type="date" id="apptGridDate" class="form-control fw-bold" onchange="loadApptGrid()">
                   </div>
-                  <button class="btn btn-primary shadow-sm text-nowrap" onclick="loadApptGrid()">
+                  <button class="btn btn-primary shadow-sm text-nowrap" onclick="loadApptGrid(true)">
                     <i class="bi bi-arrow-clockwise d-md-none"></i> <span class="d-none d-md-inline">Refresh</span>
                   </button>
                 </div>
@@ -1010,8 +1145,8 @@
                     </div>
               <hr class="text-muted">
 
-              <div class="input-group mb-2 shadow-sm">
-                <input type="text" id="bk_ic_search" class="form-control border-primary" placeholder="Enter Patient IC (######-##-####)...">
+             <div class="input-group mb-2 shadow-sm">
+                <input type="text" id="bk_ic_search" class="form-control border-primary" placeholder="Enter Patient IC or Passport...">
                 <button class="btn btn-primary" type="button" onclick="fetchPatientContext(document.getElementById('bk_ic_search').value)"><i class="bi bi-search"></i></button>
               </div>
               
@@ -1021,14 +1156,18 @@
                       <label class="small text-muted fw-bold">Patient Name</label>
                       <input type="text" id="bk_name" class="form-control fw-bold border-0 bg-white shadow-sm">
                     </div>
-                    <div class="col-12 col-md-8">
-  <label class="small text-muted fw-bold">Contact</label>
-  <input type="text" id="bk_contact" class="form-control form-control-sm border-0 bg-white">
-</div>
-<div class="col-12 col-md-4">
-  <label class="small text-muted fw-bold">Age</label>
-  <input type="text" id="bk_age" class="form-control form-control-sm border-0 bg-light text-center text-primary fw-bold" readonly>
-</div>
+                    <div class="col-12 col-md-5">
+                      <label class="small text-muted fw-bold">Contact</label>
+                      <input type="text" id="bk_contact" class="form-control form-control-sm border-0 bg-white">
+                    </div>
+                    <div class="col-12 col-md-4 d-none" id="box_dob">
+                      <label class="small text-muted fw-bold">Date of Birth <span class="text-danger">*</span></label>
+                      <input type="date" id="bk_dob" class="form-control form-control-sm border-warning" onchange="calculateAgeFromDobInput()">
+                    </div>
+                    <div class="col-12 col-md-3">
+                      <label class="small text-muted fw-bold">Age</label>
+                      <input type="text" id="bk_age" class="form-control form-control-sm border-0 bg-light text-center text-primary fw-bold" readonly>
+                    </div>
                   </div>
               </div>
 
@@ -1178,48 +1317,81 @@
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header bg-success text-white border-0">
-            <h5 class="modal-title fw-bold"><i class="bi bi-currency-dollar"></i> Process Payment</h5>
+            <h5 class="modal-title fw-bold"><i class="bi bi-currency-dollar"></i> Payment Details</h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body p-4">
-            <div class="alert alert-light border shadow-sm small mb-4">
-              <strong>Procedures Selected by Clinician:</strong><br>
-              <div id="bill_procedures" class="mt-2"></div>
-            </div>
-
-            <div class="mb-3">
-               <label class="small fw-bold text-muted">Patient Category (From Registration)</label>
-               <input type="text" id="bill_category" class="form-control bg-light fw-bold text-primary" readonly value="Standard">
-             </div>
-
-            <div class="row g-2 mb-4">
-              <div class="col-6">
-                <label class="small fw-bold text-muted">Payment Mode</label>
-                <select id="bill_mode" class="form-select">
-                  <option>EZpay</option>
-                  <option>QR</option>
-                  <option>Credit/Debit Card</option>
-                </select>
-              </div>
-              <div class="col-6">
-                <label class="small fw-bold text-muted">Discount Applied?</label>
-                <select id="bill_discount" class="form-select" onchange="calcBillingTotal(); toggleDiscountReason()">
-                  <option value="No">No</option>
-                  <option value="Yes">Yes (10%)</option>
-                </select>
-              </div>
+          <div class="modal-body p-4 bg-light">
               
-              <div class="col-12 mt-2 d-none" id="div_discount_reason">
-                 <input type="text" id="bill_discount_reason" class="form-control form-control-sm border-warning bg-warning bg-opacity-10" placeholder="Reason (e.g. Senior Citizen, OKU)...">
+              <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                      <label class="small text-muted fw-bold">Patient Category</label>
+                      <input type="text" id="bill_category" class="form-control bg-white fw-bold text-primary shadow-sm" readonly value="Standard">
+                  </div>
+                  <div class="col-md-6">
+                      <label class="small text-muted fw-bold">Payment Mode</label>
+                      <select id="bill_mode" class="form-select border-primary shadow-sm">
+                          <option value="EZpay">EZpay</option>
+                          <option value="QR">QR</option>
+                          <option value="Credit/Debit Card">Credit/Debit Card</option>
+                      </select>
+                  </div>
+                  <div class="col-md-6">
+                      <label class="small text-muted fw-bold">Discount Applied?</label>
+                      <select id="bill_discount" class="form-select border-warning shadow-sm" onchange="calcBillingTotal(); toggleDiscountReason();">
+                          <option value="No">No</option>
+                          <option value="Yes">Yes (10%)</option>
+                      </select>
+                  </div>
+                  <div class="col-md-6 d-none" id="div_discount_reason">
+                      <label class="small text-muted fw-bold">Reason for Discount</label>
+                      <input type="text" id="bill_discount_reason" class="form-control border-warning shadow-sm" placeholder="Enter reason...">
+                  </div>
               </div>
-            </div>
 
-            <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded border">
-              <span class="fs-5 fw-bold text-muted">Final Total:</span>
-              <span class="fs-3 fw-bold text-success">RM <span id="bill_total">0.00</span></span>
-            </div>
+              <div class="card border-0 shadow-sm mb-3">
+                  <div class="card-header bg-white border-bottom py-2">
+                      <h6 class="mb-0 fw-bold text-iium"><i class="bi bi-receipt"></i> Itemized Bill</h6>
+                  </div>
+                  <div class="card-body p-0">
+                      <table class="table table-sm table-borderless mb-0">
+                          <tbody id="bill_itemized_body">
+                              <tr><td class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm"></span> Loading items...</td></tr>
+                          </tbody>
+                      </table>
+                  </div>
+                  <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
+                      <span class="fw-bold text-secondary fs-5">Total Charges:</span>
+                      <span class="fw-bold text-success fs-3">RM <span id="bill_total">0.00</span></span>
+                  </div>
+              </div>
+
+              <div class="card border-info border-2 shadow-sm mb-2">
+                  <div class="card-body">
+                      <div class="row g-2 text-start">
+                          <div class="col-12">
+                              <label class="form-label fw-bold text-dark small mb-1">Actual Amount Collected / Receipt Amount</label>
+                              <div class="input-group shadow-sm">
+                                  <span class="input-group-text bg-white border-info fw-bold text-info">RM</span>
+                                  <input type="number" class="form-control border-info fw-bold fs-5 text-info" id="bill_collected" step="0.01" placeholder="0.00" oninput="checkBillingDiscrepancy()">
+                              </div>
+                          </div>
+                          <div class="col-12 d-none" id="div_discrepancy_reason">
+                              <label class="form-label fw-bold text-danger small mb-1 mt-2"><i class="bi bi-exclamation-triangle-fill"></i> Reason for Discrepancy <span class="text-danger">*</span></label>
+                              <input type="text" class="form-control border-danger shadow-sm" id="bill_discrepancy_reason" placeholder="Why does the receipt not match the system total?">
+                          </div>
+                      </div>
+                      
+                      <div class="form-check mt-3 bg-success bg-opacity-10 border border-success rounded p-2 ps-5 shadow-sm">
+                          <input class="form-check-input border-success" type="checkbox" id="chk_receipt_verified" style="transform: scale(1.3); cursor: pointer; margin-top: 0.15rem;">
+                          <label class="form-check-label fw-bold text-success small" for="chk_receipt_verified" style="cursor: pointer;">
+                              I verify that the amounts above are correct and the receipt has been issued.
+                          </label>
+                      </div>
+                  </div>
+              </div>
+
           </div>
-          <div class="modal-footer border-0 pt-0">
+          <div class="modal-footer bg-light border-0 pt-2 pb-3">
             <button type="button" id="btnSaveBilling" class="btn btn-success w-100 py-2 fw-bold shadow" onclick="saveBilling()">
                Save Payment Record
             </button>
@@ -1332,11 +1504,13 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 
     <script>
        window.START_PAGE = "<?!= startPage ?>";
     </script>
 
-    <script src="app.js"></script>
+    <?!= include('js'); ?>
   </body>
 </html>
