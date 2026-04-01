@@ -176,24 +176,36 @@ function createGasProxy(successCallback, failureCallback) {
           });
       }
 
-      // --- NEW: MODAL IC AUTO-FORMATTER & AGE CALCULATOR ---
+      // --- NEW: MODAL IC/PASSPORT AUTO-FORMATTER ---
       const bkIcInput = document.getElementById('bk_ic_search');
       if(bkIcInput) {
           bkIcInput.addEventListener('input', function(e) {
-              let val = e.target.value.replace(/\D/g, ''); 
-              if (val.length > 12) val = val.slice(0, 12);
+              // Strip special chars but KEEP LETTERS AND NUMBERS
+              let val = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); 
               
-              if (val.length > 8) {
-                  val = val.slice(0, 6) + '-' + val.slice(6, 8) + '-' + val.slice(8);
-              } else if (val.length > 6) {
-                  val = val.slice(0, 6) + '-' + val.slice(6);
+              // Only format with dashes if it's strictly numbers (Malaysian NRIC)
+              if (/^\d+$/.test(val)) {
+                  if (val.length > 12) val = val.slice(0, 12);
+                  if (val.length > 8) val = val.slice(0, 6) + '-' + val.slice(6, 8) + '-' + val.slice(8);
+                  else if (val.length > 6) val = val.slice(0, 6) + '-' + val.slice(6);
               }
               e.target.value = val;
               
               // Auto-calculate age instantly!
-              if (val.replace(/\D/g, '').length >= 6) {
-                  const ageField = document.getElementById('bk_age');
-                  if(ageField) ageField.value = calculateAgeFrontend(val);
+              const ageField = document.getElementById('bk_age');
+              const dobBox = document.getElementById('box_dob');
+              
+              if (val.length >= 6) {
+                  let calc = calculateAgeFrontend(val);
+                  if (calc === 0 || calc === '-') {
+                      // It's a passport! Show DOB box.
+                      if (dobBox) dobBox.classList.remove('d-none');
+                      if (ageField) ageField.value = 'Need DOB';
+                  } else {
+                      // It's an NRIC! Hide DOB box.
+                      if (dobBox) dobBox.classList.add('d-none');
+                      if (ageField) ageField.value = calc;
+                  }
               }
           });
       }
@@ -825,7 +837,8 @@ function loadQueue() {
                   let nextInfo = '-';
                   if (item.nextStatus && item.nextStatus !== '-') {
                      const dur = (item.nextDur && item.nextDur !== '-') ? item.nextDur : '';
-                     const plan = (item.nextPlan && item.nextPlan !== '-') ? item.nextPlan : '';
+                     let plan = (item.nextPlan && item.nextPlan !== '-') ? item.nextPlan : '';
+                  if (plan.includes('| MANAGEMENT:')) plan = plan.split('| MANAGEMENT:')[0].trim();
                      const combo = [dur, plan].filter(Boolean).join(': ');
                      
                      if(item.nextStatus === 'Discharge') {
@@ -845,11 +858,25 @@ function loadQueue() {
 
                   let chargeDisplay = '<span class="text-muted">-</span>';
                   let chargeStr = String(item.charges || "");
+                  let collStr = String(item.amountCollected || "");
                   
+                  // 1. SYSTEM CHARGES & WAIVER BADGES
                   if (chargeStr.includes('HSP') || chargeStr.includes('Research')) {
                       chargeDisplay = `<span class="badge bg-info text-dark shadow-sm">${chargeStr.replace('0.00', '').trim()}</span>`;
+                      chargeDisplay += `<br><span class="badge bg-success mt-1 shadow-sm"><i class="bi bi-check-circle-fill"></i> Waived</span>`;
                   } else if (item.charges && !isNaN(parseFloat(item.charges)) && parseFloat(item.charges) > 0) {
-                      chargeDisplay = `<span class="text-success fw-bold">${parseFloat(item.charges).toFixed(2)}</span>`;
+                      let billed = parseFloat(item.charges).toFixed(2);
+                      chargeDisplay = `<span class="text-success fw-bold">${billed}</span>`;
+                      
+                      // Draw the Collected Bracket!
+                      if (collStr && !isNaN(parseFloat(collStr))) {
+                          let coll = parseFloat(collStr).toFixed(2);
+                          if (billed === coll) {
+                              chargeDisplay += `<br><small class="text-success fw-bold">(Paid: RM ${coll})</small>`;
+                          } else {
+                              chargeDisplay += `<br><small class="text-danger fw-bold" title="Discrepancy Logged">(Paid: RM ${coll})</small>`;
+                          }
+                      }
                   }
 
                   let actionBtnHtml = `<div class="d-flex justify-content-center gap-1">`;
@@ -865,8 +892,14 @@ function loadQueue() {
                   }
 
                   if (String(currentUserRole).trim().toLowerCase() !== 'student') {
-                      actionBtnHtml += `<button class="btn btn-sm btn-outline-primary" onclick="openBookingFromQueue(${index})" title="Set Next Appointment"><i class="bi bi-calendar-plus"></i> Appt</button>
-                                        <button class="btn btn-sm btn-outline-success" onclick="openBillingModal(${index})" title="Process Payment"><i class="bi bi-currency-dollar"></i> Pay</button>`;
+                      actionBtnHtml += `<button class="btn btn-sm btn-outline-primary" onclick="openBookingFromQueue(${index})" title="Set Next Appointment"><i class="bi bi-calendar-plus"></i> Appt</button>`;
+                      
+                      // SMART BUTTON: Hide "Pay" if it is a waived Research/HSP case!
+                      if (chargeStr.includes('HSP') || chargeStr.includes('Research')) {
+                          actionBtnHtml += `<button class="btn btn-sm btn-outline-secondary disabled" title="Fees automatically waived"><i class="bi bi-check2-circle"></i> Waived</button>`;
+                      } else {
+                          actionBtnHtml += `<button class="btn btn-sm btn-outline-success" onclick="openBillingModal(${index})" title="Process Payment"><i class="bi bi-currency-dollar"></i> Pay</button>`;
+                      }
                   }
                   actionBtnHtml += `</div>`;
 
@@ -1056,7 +1089,16 @@ function startCensusFromIndex(index, targetSection = 1, attStatus = '') {
             setVal('inp_nextDur', fullData.draftData.nextDur);
             
             // FIX 3: Removed typo that caused the Section 5 crash
-            setPlanChecks(fullData.draftData.nextPlan); 
+            // Split Plan and Management
+            let rawPlan = fullData.draftData.nextPlan || '';
+            if (rawPlan.includes('| MANAGEMENT:')) {
+                let parts = rawPlan.split('| MANAGEMENT:');
+                setPlanChecks(parts[0].trim());
+                setVal('inp_management', parts[1].trim());
+            } else {
+                setPlanChecks(rawPlan);
+                setVal('inp_management', '');
+            } 
             setVal('inp_remarks', fullData.draftData.remarks);
             
             if (fullData.draftData.priceCategory) setVal('inp_category', fullData.draftData.priceCategory);
@@ -1274,7 +1316,16 @@ function proceedToCensus(overrideDate = null) {
         setVal('inp_nextDur', p.draftData.nextDur);
         
         // FIX 3: Removed typo causing crash
-        setPlanChecks(p.draftData.nextPlan); 
+        // Split Plan and Management
+        let rawPlan = p.draftData.nextPlan || '';
+        if (rawPlan.includes('| MANAGEMENT:')) {
+            let parts = rawPlan.split('| MANAGEMENT:');
+            setPlanChecks(parts[0].trim());
+            setVal('inp_management', parts[1].trim());
+        } else {
+            setPlanChecks(rawPlan);
+            setVal('inp_management', '');
+        } 
         setVal('inp_remarks', p.draftData.remarks);
         
         if (p.draftData.priceCategory) setVal('inp_category', p.draftData.priceCategory);
@@ -1921,7 +1972,7 @@ function submitCensusV2(status) {
 
         planStatus: document.querySelector('input[name="planStatus"]:checked')?.value || '',
         nextVisitDuration: nextDurVal, 
-        planNext: nextPlanVal,         
+        planNext: getVal('inp_management') ? nextPlanVal + " | MANAGEMENT: " + getVal('inp_management') : nextPlanVal,         
         remarks: getVal('inp_remarks'),
         
         referralLetters: refArr, 
@@ -2049,7 +2100,7 @@ function togglePlanOther() {
 }
 
 // --- RENDER WEEKLY APPT GRID (Split Pill UI & Tooltips) ---
-function loadApptGrid() {
+function loadApptGrid(forceRefresh = false) {
   const dateInput = document.getElementById('apptGridDate');
   if(!dateInput.value) dateInput.valueAsDate = new Date(); 
   
@@ -2150,7 +2201,7 @@ function loadApptGrid() {
      
      container.innerHTML = fullHtml;
 
-  }).withFailureHandler(handleServerFailure).getThreeSlotGrid(dateInput.value);
+  }).withFailureHandler(handleServerFailure).getThreeSlotGrid(dateInput.value, forceRefresh);
 }
 
 // --- JUMP TO WEEKLY VIEW FROM QUEUE (Armored) ---
@@ -2348,8 +2399,9 @@ function confirmBooking() {
     time: document.getElementById('bk_time').value,
     slot: document.getElementById('bk_slot').value,
     duration: document.getElementById('bk_duration').value, 
-    roomList: roomList,  // Passes the exact rooms to the backend
-    ic: document.getElementById('bk_ic_search').value.replace(/\D/g, ''), // <--- Strips dashes!
+    roomList: roomList, 
+    ic: document.getElementById('bk_ic_search').value.replace(/[^A-Z0-9]/gi, '').toUpperCase(), // Allows letters!
+    dob: document.getElementById('bk_dob') ? document.getElementById('bk_dob').value : '', // <--- ADD THIS LINE!
     name: document.getElementById('bk_name').value,
     contact: document.getElementById('bk_contact').value,
     age: document.getElementById('bk_age').value,
@@ -2771,40 +2823,34 @@ function executeAdvancedSearch() {
 // ROLE-BASED ACCESS CONTROL (RBAC)
 // ==========================================
 function applyRBAC() {
+    // Standardize the role text so "Clinician", "Staff", or "Admin" all work perfectly
     const role = String(currentUserRole).trim().toLowerCase();
-
-    // 1. SIDEBAR RESTRICTIONS
-    if (role === 'student') {
-        // Hide Appointments for students
-        if (document.getElementById('nav-appointments')) document.getElementById('nav-appointments').style.display = 'none';
-        if (document.getElementById('nav-appointments-mob')) document.getElementById('nav-appointments-mob').style.display = 'none';
-    } else {
-        // Show Appointments for Admin/Staff
-        if (document.getElementById('nav-appointments')) document.getElementById('nav-appointments').style.display = 'block';
-        if (document.getElementById('nav-appointments-mob')) document.getElementById('nav-appointments-mob').style.display = 'block';
-    }
-
-    // ALWAYS show Rooms for EVERYONE so students can submit requests!
-    if (document.getElementById('nav-rooms')) document.getElementById('nav-rooms').style.display = 'block';
-    if (document.getElementById('nav-rooms-mob')) document.getElementById('nav-rooms-mob').style.display = 'block';
-
-    // Show Analytics only for Admin (Desktop & Mobile)
     const isAdmin = (role === 'admin');
-    const analyticsNav = document.getElementById('nav-analytics');
-    const analyticsNavMob = document.getElementById('nav-analytics-mob');
-    if (analyticsNav) analyticsNav.style.display = isAdmin ? 'block' : 'none';
-    if (analyticsNavMob) analyticsNavMob.style.display = isAdmin ? 'block' : 'none';
-
-    // Restrict HSP Analytics to Admin and Staff only (Desktop & Mobile)
-    const isNotStudent = (role !== 'student');
-    const hspNavItem = document.getElementById('nav-hsp-analytics');
-    const hspNavItemMob = document.getElementById('nav-hsp-analytics-mob');
-    if (hspNavItem) hspNavItem.style.display = isNotStudent ? 'block' : 'none';
-    if (hspNavItemMob) hspNavItemMob.style.display = isNotStudent ? 'block' : 'none';
-
-    // 2. CENSUS FORM RESTRICTIONS (Section 1: Demographics)
-    // Students can view but cannot edit the core patient identity data.
     const isStudent = (role === 'student');
+    const isStaffOrAdmin = (!isStudent && role !== 'guest');
+
+    // 1. SIDEBAR: APPOINTMENTS
+    // Students cannot book appointments
+    const apptNavs = [document.getElementById('nav-appointments'), document.getElementById('nav-appointments-mob')];
+    apptNavs.forEach(el => { if (el) el.style.display = isStaffOrAdmin ? 'block' : 'none'; });
+
+    // 2. SIDEBAR: MAIN ANALYTICS
+    // ONLY Admins can see financial and clinic volume analytics
+    const analyticsNavs = [document.getElementById('nav-analytics'), document.getElementById('nav-analytics-mob')];
+    analyticsNavs.forEach(el => { if (el) el.style.display = isAdmin ? 'block' : 'none'; });
+
+    // 3. SIDEBAR: HSP REFERRAL DATABASE
+    // Staff/Clinicians AND Admins need to see this to call patients. Students cannot.
+    const hspNavs = [document.getElementById('nav-hsp-analytics'), document.getElementById('nav-hsp-analytics-mob')];
+    hspNavs.forEach(el => { if (el) el.style.display = isStaffOrAdmin ? 'block' : 'none'; });
+
+    // 4. SIDEBAR: INTERNAL ROOMS
+    // ALWAYS show Rooms for EVERYONE (including Guests/Junior Students) so they can submit requests!
+    const roomNavs = [document.getElementById('nav-rooms'), document.getElementById('nav-rooms-mob')];
+    roomNavs.forEach(el => { if (el) el.style.display = 'block'; });
+
+    // 5. CENSUS FORM: DEMOGRAPHICS LOCK (Section 1)
+    // Students can view but cannot edit core patient identity data (unless registering a brand new walk-in).
     const sec1Inputs = ['inp_ic', 'inp_name', 'inp_contact', 'inp_email', 'inp_address', 'inp_ecName', 'inp_ecContact', 'inp_ecRel'];
     
     sec1Inputs.forEach(id => {
@@ -2819,14 +2865,14 @@ function applyRBAC() {
         }
     });
 
-    // Hide the "Save/Update Data" button for Section 1 if Student
+    // Hide the "Save/Update Patient" button for Section 1 if Student
     const savePatBtn = document.getElementById('btnSavePatient');
     if (savePatBtn) {
         savePatBtn.style.display = isStudent ? 'none' : 'inline-block';
     }
 
-    // *Note: Section 2 (Payment/Billing) restrictions have been intentionally removed.*
-    // *Students are allowed full access to practice clinical charging.*
+    // Note: Payment, Report Printing, and Census Editing are already actively protected 
+    // inside the loadQueue(), generateReport(), and renderHistory() functions!
 }
 
 function toggleDiscountReason() {
@@ -2843,6 +2889,20 @@ function toggleDiscountReason() {
     }
 }
 
+function checkBillingDiscrepancy() {
+    const calcTotal = parseFloat(document.getElementById('bill_total').innerText) || 0;
+    const collectedInput = document.getElementById('bill_collected').value;
+    const discDiv = document.getElementById('div_discrepancy_reason');
+    
+    // If the input isn't blank, and it doesn't match the system total, show the warning box!
+    if (collectedInput !== "" && parseFloat(collectedInput).toFixed(2) !== calcTotal.toFixed(2)) {
+        discDiv.classList.remove('d-none');
+    } else {
+        discDiv.classList.add('d-none');
+        document.getElementById('bill_discrepancy_reason').value = '';
+    }
+}
+
 // ==========================================
 // BILLING MODAL LOGIC (Counter Workflow)
 // ==========================================
@@ -2853,16 +2913,26 @@ function openBillingModal(index) {
     // Reset modal UI
     document.getElementById('bill_category').value = 'Standard';
     document.getElementById('bill_discount').value = 'No';
-    document.getElementById('div_discount_reason').classList.add('d-none'); // <--- NEW: Hide reason box
+    document.getElementById('div_discount_reason').classList.add('d-none');
     document.getElementById('bill_discount_reason').value = '';
-    document.getElementById('bill_mode').value = 'Cash';
-    document.getElementById('bill_procedures').innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span> Fetching records...';
+    
+    // Default to the first option in your new dropdown
+    document.getElementById('bill_mode').value = 'Credit/Debit Card'; 
+    
+    // Reset new verification fields
+    document.getElementById('bill_collected').value = '';
+    document.getElementById('bill_discrepancy_reason').value = '';
+    document.getElementById('div_discrepancy_reason').classList.add('d-none');
+    document.getElementById('chk_receipt_verified').checked = false;
+    
+    // Set the spinner state
+    document.getElementById('bill_itemized_body').innerHTML = '<tr><td class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm text-primary"></span> Loading items...</td></tr>';
     document.getElementById('bill_total').innerText = '0.00';
     
     const modal = new bootstrap.Modal(document.getElementById('billingModal'));
     modal.show();
 
-    // Fetch the draft/completed visit to see what the Clinician ticked
+    // Fetch the draft/completed visit
     google.script.run.withSuccessHandler(data => {
         let procs = [];
         if (data.draftData && data.draftData.procedures) {
@@ -2875,93 +2945,151 @@ function openBillingModal(index) {
         }
         currentBillProcedures = procs;
         
-        if (procs.length === 0) {
-            document.getElementById('bill_procedures').innerHTML = '<span class="text-warning small"><i class="bi bi-exclamation-triangle"></i> No procedures selected yet. Ask Clinician to complete Section 3.</span>';
-        } else {
-            document.getElementById('bill_procedures').innerHTML = procs.map(p => `<span class="badge bg-secondary me-1 mb-1">${p}</span>`).join('');
+        // Auto-fill the Read-Only Category from DB
+        let dbCategory = data.category || 'Standard';
+        document.getElementById('bill_category').value = dbCategory;
+        
+        // If HSP was toggled, visually indicate it
+        if (data.draftData && data.draftData.isHSP === 'Yes') {
+            document.getElementById('bill_category').value = dbCategory + " (HSP Covered)";
         }
-       
-       // NEW: Auto-fill the Read-Only Category from DB
-       let dbCategory = data.category || 'Standard';
-       document.getElementById('bill_category').value = dbCategory;
-       
-       // If HSP was toggled in Section 3, we might want to visually indicate it here too
-       // (Optional, but helpful)
-       if (data.draftData && data.draftData.isHSP === 'Yes') {
-           document.getElementById('bill_category').value = dbCategory + " (HSP Covered)";
-       }
 
-       calcBillingTotal(); // Recalculate totals based on this loaded category
-   }).withFailureHandler(handleServerFailure).getPatientDetails(item.ic, item.isoDate);
+        // CRITICAL FIX: Trigger the itemized bill calculation directly!
+        calcBillingTotal(); 
+
+    }).withFailureHandler(handleServerFailure).getPatientDetails(item.ic, item.isoDate);
 }
 
 function calcBillingTotal() {
     const cat = document.getElementById('bill_category').value;
     const disc = document.getElementById('bill_discount').value;
-    let total = 0;
-    let manualTotal = 0; // Tracks prices immune to discounts
+    const tableBody = document.getElementById('bill_itemized_body');
+    
+    let subtotal = 0;
+    let manualTotal = 0; 
+    let htmlBuffer = '';
     
     if (currentBillProcedures && currentBillProcedures.length > 0) {
         currentBillProcedures.forEach(procString => {
+            let cost = 0;
+            let procName = procString;
+            
             // 1. EXTRACT MANUAL PRICE IF IT EXISTS
             let manualMatch = procString.match(/\[RM\s*([0-9.]+)\]/);
             if (manualMatch) {
-                manualTotal += parseFloat(manualMatch[1]) || 0;
-                return; // STOP! Do not apply category rules to this item.
+                cost = parseFloat(manualMatch[1]) || 0;
+                manualTotal += cost;
+                procName = procString.replace(manualMatch[0], '').trim();
+            } else {
+                // 2. STANDARD PRICE LOGIC
+                const p = globalPriceList.find(item => item[1] === procString);
+                if(p) {
+                    cost = parseFloat(p[3] || 0); // Standard
+                    if(cat === 'Privileged') cost = parseFloat(p[2] || 0);
+                    if(cat.includes('HSP')) cost = 0;
+                    
+                    let lowerName = procString.toLowerCase();
+                    let isExcluded = lowerName.includes('registration') || lowerName.includes('appointment card') || lowerName.includes('professional');
+                    if(cat === 'Non-Malaysian' && !isExcluded) {
+                        cost *= 1.5;
+                    }
+                    subtotal += cost;
+                }
             }
             
-            // 2. STANDARD PRICE LOGIC
-            const p = globalPriceList.find(item => item[1] === procString);
-            if(p) {
-                let cost = parseFloat(p[3] || 0); // Standard
-                if(cat === 'Privileged') cost = parseFloat(p[2] || 0);
-                if(cat === 'HSP') cost = 0;
-                
-                // NON-MALAYSIAN EXCLUSION LOGIC
-                let lowerName = procString.toLowerCase();
-                let isExcluded = lowerName.includes('registration') || 
-                                 lowerName.includes('appointment card') || 
-                                 lowerName.includes('professional');
-                                 
-                if(cat === 'Non-Malaysian' && !isExcluded) {
-                    cost *= 1.5;
-                }
-                total += cost;
-            }
+            htmlBuffer += `<tr>
+                <td class="text-secondary small fw-bold ps-3">${procName}</td>
+                <td class="text-end fw-bold small text-dark pe-3">RM ${cost.toFixed(2)}</td>
+            </tr>`;
         });
+    } else {
+        htmlBuffer = `<tr><td colspan="2" class="text-center text-warning small py-3"><i class="bi bi-exclamation-triangle"></i> No procedures selected.</td></tr>`;
     }
     
-    // Apply 10% discount ONLY to the standard total
-    if(disc === 'Yes') total *= 0.9;
+    // Apply 10% discount ONLY to the standard subtotal
+    let discountAmount = 0;
+    if(disc === 'Yes' && subtotal > 0) {
+        discountAmount = subtotal * 0.1;
+        htmlBuffer += `<tr class="border-top text-danger bg-danger bg-opacity-10">
+            <td class="small fw-bold text-end pe-2 py-2">10% Discount Applied:</td>
+            <td class="text-end fw-bold small py-2 pe-3">- RM ${discountAmount.toFixed(2)}</td>
+        </tr>`;
+    }
     
-    // ADD THE FIXED MANUAL PRICES AT THE END
-    let grandTotal = total + manualTotal;
+    let grandTotal = (subtotal - discountAmount) + manualTotal;
+    
+    // Inject Table and Update Total
+    if (tableBody) tableBody.innerHTML = htmlBuffer;
     document.getElementById('bill_total').innerText = grandTotal.toFixed(2);
+
+    // --- NEW: AUTO-FILL THE ACTUAL COLLECTED AMOUNT ---
+    document.getElementById('bill_collected').value = grandTotal.toFixed(2);
+    
+    // Re-check discrepancies in case the total changed!
+    checkBillingDiscrepancy();
 }
 
 function saveBilling() {
+    const calcTotal = document.getElementById('bill_total').innerText;
+    const collected = document.getElementById('bill_collected').value;
+    const discReason = document.getElementById('bill_discrepancy_reason').value;
+    const isVerified = document.getElementById('chk_receipt_verified').checked;
+    
+    // 1. STRICT VALIDATION
+    if (!isVerified) {
+        showToast("You must verify the receipt to proceed.", "warning");
+        return;
+    }
+    if (collected === "") {
+        showToast("Please enter the actual amount collected.", "warning");
+        return;
+    }
+    if (parseFloat(collected).toFixed(2) !== parseFloat(calcTotal).toFixed(2) && discReason.trim() === "") {
+        showToast("Please provide a reason for the payment discrepancy.", "error");
+        return;
+    }
+
     const btn = document.getElementById('btnSaveBilling');
     btn.disabled = true;
-    btn.innerText = "Saving...";
+    btn.innerText = "Processing...";
 
+    // 2. BUNDLE THE NOTES & SET AMOUNTS
+    let finalDiscountReason = document.getElementById('bill_discount_reason').value;
+    let actualCollected = parseFloat(collected).toFixed(2);
+    
+    if (actualCollected !== parseFloat(calcTotal).toFixed(2)) {
+        let discrepancyNote = `[DISCREPANCY] System Total: RM ${calcTotal} | Actually Paid: RM ${actualCollected} | Reason: ${discReason}`;
+        finalDiscountReason = finalDiscountReason ? finalDiscountReason + " | " + discrepancyNote : discrepancyNote;
+    } 
+
+    // 3. BUILD PAYLOAD (Sending BOTH numbers independently)
     const payload = {
         ic: currentBillItem.ic,
-        date: currentBillItem.isoDate,
+        date: currentBillItem.isoDate || currentBillItem.date || document.getElementById('queueDate').value, // <--- BULLETPROOF DATE GRABBER
         category: document.getElementById('bill_category').value,
         discount: document.getElementById('bill_discount').value,
-        discountReason: document.getElementById('bill_discount_reason').value,
+        discountReason: finalDiscountReason,
         mode: document.getElementById('bill_mode').value,
-        total: document.getElementById('bill_total').innerText
+        total: calcTotal,                 // System calculated charges
+        amountCollected: actualCollected  // Actual receipt amount
     };
 
     google.script.run.withSuccessHandler(res => {
         btn.disabled = false;
         btn.innerText = "Save Payment Record";
-        const modal = bootstrap.Modal.getInstance(document.getElementById('billingModal'));
-        modal.hide();
-        showToast("Payment Details Saved Successfully!", "success");
-        loadQueue(); // Refresh queue to show updated green price
-    }).withFailureHandler(handleServerFailure).saveBillingStatus(payload);
+        if(res.success) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('billingModal'));
+            modal.hide();
+            showToast("Payment Details Saved Successfully!", "success");
+            loadQueue(); 
+        } else {
+            showToast("Error: " + res.message, "error");
+        }
+    }).withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerText = "Save Payment Record";
+        handleServerFailure(err);
+    }).saveBillingStatus(payload);
 }
 
 // ==========================================
@@ -3066,12 +3194,25 @@ function addRoomRow() {
 // UI HELPER: PATIENT BANNER & AGE CALC
 // ==========================================
 function calculateAgeFrontend(ic) {
-    const clean = String(ic).replace(/\D/g, '');
-    if(clean.length < 6) return '-';
-    let year = parseInt(clean.substring(0,2));
-    let currentYear = new Date().getFullYear() % 100;
-    let fullYear = (year > currentYear) ? 1900 + year : 2000 + year;
-    return new Date().getFullYear() - fullYear;
+    const clean = String(ic).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    // Only run Malaysian NRIC math if it is EXACTLY 12 digits and ONLY numbers
+    if(clean.length === 12 && /^\d+$/.test(clean)) {
+        let year = parseInt(clean.substring(0,2));
+        let currentYear = new Date().getFullYear() % 100;
+        let fullYear = (year > currentYear) ? 1900 + year : 2000 + year;
+        return new Date().getFullYear() - fullYear;
+    }
+    return 0; // Return 0 for passports!
+}
+
+// NEW: Calculates age from the manual DOB box
+function calculateAgeFromDobInput() {
+    const dobVal = document.getElementById('bk_dob').value;
+    if (!dobVal) return;
+    const dob = new Date(dobVal);
+    const diff = Date.now() - dob.getTime();
+    const age = Math.abs(new Date(diff).getUTCFullYear() - 1970);
+    document.getElementById('bk_age').value = age;
 }
 
 function updateCensusBanner() {
@@ -3129,10 +3270,35 @@ function generateReport(index) {
         document.getElementById('rpt_history').innerText = d.caseHistory || 'No history recorded.';
         document.getElementById('rpt_diagnosis').innerText = d.diagnosis || 'No diagnosis recorded.';
         
-        let planText = `Status: ${d.planStatus || '-'}\n`;
-        if (d.nextDur && d.nextDur !== '-') planText += `Next Visit: ${d.nextDur}\n`;
-        if (d.nextPlan && d.nextPlan !== '-') planText += `Plan: ${d.nextPlan}\n`;
-        document.getElementById('rpt_plan').innerText = planText;
+        // --- BUILD REPORT PLAN & MANAGEMENT TEXT ---
+        let planText = "";
+        let rawPlan = d.nextPlan || '-';
+        
+        if (rawPlan.includes('| MANAGEMENT:')) {
+            let parts = rawPlan.split('| MANAGEMENT:');
+            
+            // 1. Management prints at the very top
+            if (parts[1] && parts[1].trim()) {
+                planText += `Management:\n${parts[1].trim()}\n\n`;
+            }
+            
+            // 2. Status & Next Visit
+            planText += `Status: ${d.planStatus || '-'}\n`;
+            if (d.nextDur && d.nextDur !== '-') planText += `Next Visit: ${d.nextDur}\n`;
+            
+            // 3. Plan prints last
+            if (parts[0] && parts[0].trim() && parts[0].trim() !== '-') {
+                planText += `Plan: ${parts[0].trim()}`;
+            }
+        } else {
+            // Fallback if there is no Management text
+            planText += `Status: ${d.planStatus || '-'}\n`;
+            if (d.nextDur && d.nextDur !== '-') planText += `Next Visit: ${d.nextDur}\n`;
+            if (rawPlan !== '-') planText += `Plan: ${rawPlan}`;
+        }
+        
+        document.getElementById('rpt_plan').innerText = planText.trim();
+        // ------------------------------------------
 
         let findingsRaw = d.findings || 'No findings recorded.';
         // Upgraded Auto-Bolder: Catches ALL characters (like /, &, commas) before the colon
@@ -3219,10 +3385,35 @@ function generateReportFromHistory(ic, isoDate, displayDate) {
         document.getElementById('rpt_history').innerText = d.caseHistory || 'No history recorded.';
         document.getElementById('rpt_diagnosis').innerText = d.diagnosis || 'No diagnosis recorded.';
         
-        let planText = `Status: ${d.planStatus || '-'}\n`;
-        if (d.nextDur && d.nextDur !== '-') planText += `Next Visit: ${d.nextDur}\n`;
-        if (d.nextPlan && d.nextPlan !== '-') planText += `Plan: ${d.nextPlan}\n`;
-        document.getElementById('rpt_plan').innerText = planText;
+        // --- BUILD REPORT PLAN & MANAGEMENT TEXT ---
+        let planText = "";
+        let rawPlan = d.nextPlan || '-';
+        
+        if (rawPlan.includes('| MANAGEMENT:')) {
+            let parts = rawPlan.split('| MANAGEMENT:');
+            
+            // 1. Management prints at the very top
+            if (parts[1] && parts[1].trim()) {
+                planText += `Management:\n${parts[1].trim()}\n\n`;
+            }
+            
+            // 2. Status & Next Visit
+            planText += `Status: ${d.planStatus || '-'}\n`;
+            if (d.nextDur && d.nextDur !== '-') planText += `Next Visit: ${d.nextDur}\n`;
+            
+            // 3. Plan prints last
+            if (parts[0] && parts[0].trim() && parts[0].trim() !== '-') {
+                planText += `Plan: ${parts[0].trim()}`;
+            }
+        } else {
+            // Fallback if there is no Management text
+            planText += `Status: ${d.planStatus || '-'}\n`;
+            if (d.nextDur && d.nextDur !== '-') planText += `Next Visit: ${d.nextDur}\n`;
+            if (rawPlan !== '-') planText += `Plan: ${rawPlan}`;
+        }
+        
+        document.getElementById('rpt_plan').innerText = planText.trim();
+        // ------------------------------------------
 
         // 3. Format the Findings beautifully (Bulletproof Auto-Bolder)
         let findingsRaw = d.findings || 'No findings recorded.';
@@ -4279,3 +4470,379 @@ showPage = function(pageId) {
         triggerStatsFetch();
     }
 };
+
+// ==========================================
+// ADVANCED ANALYTICS UI ENGINE
+// ==========================================
+let chartInstances = {}; // Keeps track of charts so we can delete them before redrawing
+
+function openAnalyticsDashboard() {
+    showPage('analytics');
+    
+    // Auto-select "This Month" the first time they open it
+    document.getElementById('analyticsPreset').value = 'thisMonth';
+    applyAnalyticsPreset();
+}
+
+// --- NEW: QUICK SELECTOR ENGINE ---
+function applyAnalyticsPreset() {
+    let preset = document.getElementById('analyticsPreset').value;
+    if (preset === 'custom') return;
+
+    let start = new Date();
+    let end = new Date();
+
+    if (preset === 'thisMonth') {
+        start = new Date(end.getFullYear(), end.getMonth(), 1);
+    } else if (preset === 'lastMonth') {
+        start = new Date(end.getFullYear(), end.getMonth() - 1, 1);
+        end = new Date(end.getFullYear(), end.getMonth(), 0);
+    } else if (preset === 'thisQuarter') {
+        let currentQuarter = Math.floor(end.getMonth() / 3);
+        start = new Date(end.getFullYear(), currentQuarter * 3, 1);
+    } else if (preset === 'thisYear') {
+        start = new Date(end.getFullYear(), 0, 1);
+    }
+    
+    // Format YYYY-MM-DD for the input boxes
+    const formatIso = d => {
+        let mm = String(d.getMonth() + 1).padStart(2, '0');
+        let dd = String(d.getDate()).padStart(2, '0');
+        return `${d.getFullYear()}-${mm}-${dd}`;
+    };
+
+    document.getElementById('analyticsStart').value = formatIso(start);
+    document.getElementById('analyticsEnd').value = formatIso(end);
+
+    // Instantly load the chart with the new dates
+    loadAdvancedAnalytics();
+}
+
+function loadAdvancedAnalytics() {
+    const startVal = document.getElementById('analyticsStart').value;
+    const endVal = document.getElementById('analyticsEnd').value;
+    const doCompare = document.getElementById('analyticsCompare').checked;
+    
+    if (!startVal || !endVal) return alert("Please select a date range.");
+    
+    let payload = { currentStart: startVal, currentEnd: endVal, compareStart: null, compareEnd: null };
+    
+    if (doCompare) {
+        let sDate = new Date(startVal);
+        let eDate = new Date(endVal);
+        let diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+        
+        let cEnd = new Date(sDate); cEnd.setDate(cEnd.getDate() - 1);
+        let cStart = new Date(cEnd); cStart.setDate(cStart.getDate() - diffDays + 1);
+        
+        payload.compareStart = cStart.toISOString().split('T')[0];
+        payload.compareEnd = cEnd.toISOString().split('T')[0];
+    }
+    
+    // --- SHOW LOADING SPINNERS & FADE CHARTS ---
+    const spinHtml = '<span class="spinner-border spinner-border-sm text-primary"></span>';
+    
+    document.getElementById('kpiVisits').innerHTML = spinHtml;
+    document.getElementById('kpiAttRate').innerHTML = spinHtml;
+    document.getElementById('kpiRevenueCollected').innerHTML = spinHtml;
+    if (document.getElementById('kpiTopProc')) document.getElementById('kpiTopProc').innerHTML = spinHtml;
+    
+    document.body.style.cursor = 'wait'; // Turn mouse into a loading circle
+    
+    // Fade out the old charts so the user knows they are recalculating
+    const chartIds = ['chartCaseType', 'chartDemo', 'chartProcedures', 'chartSupervisor', 'chartNoShow', 'chartReferrals'];
+    chartIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.opacity = '0.3'; 
+            el.style.transition = 'opacity 0.3s ease'; // Smooth fade effect
+        }
+    });
+    // -------------------------------------------
+    
+    // 🔥 NEW: Added .withFailureHandler to catch server crashes instantly!
+    google.script.run
+        .withSuccessHandler(renderAnalytics)
+        .withFailureHandler(handleServerFailure)
+        .getAdvancedDashboardData(payload);
+}
+
+function renderAnalytics(res) {
+    document.body.style.cursor = 'default'; // Reset the mouse
+    
+    if (!res.success) {
+        showToast("Failed to load analytics.", "error");
+        return; 
+    }
+    
+    // Snap the charts back to full visibility
+    const chartIds = ['chartCaseType', 'chartDemo', 'chartProcedures', 'chartSupervisor', 'chartNoShow', 'chartReferrals'];
+    chartIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.opacity = '1.0'; 
+    });
+
+    const curr = res.current;
+    const comp = res.compare;
+    
+    // --- 1. RENDER KPIs with PoP Math ---
+    const calcPoP = (currVal, compVal, isCurrency) => {
+        if (!document.getElementById('analyticsCompare').checked || compVal === 0) return `<span class="text-muted">No comparison data</span>`;
+        let pct = ((currVal - compVal) / compVal) * 100;
+        let icon = pct > 0 ? '<i class="bi bi-arrow-up-short"></i>' : (pct < 0 ? '<i class="bi bi-arrow-down-short"></i>' : '=');
+        let color = pct > 0 ? 'text-success' : (pct < 0 ? 'text-danger' : 'text-muted');
+        return `<span class="${color} fw-bold">${icon} ${Math.abs(pct).toFixed(1)}%</span> <span class="text-muted small">vs prev</span>`;
+    };
+
+    let currAttRate = curr.kpi.totalVisits > 0 ? (curr.kpi.attended / curr.kpi.totalVisits) * 100 : 0;
+    let compAttRate = comp.kpi.totalVisits > 0 ? (comp.kpi.attended / comp.kpi.totalVisits) * 100 : 0;
+
+    document.getElementById('kpiVisits').innerText = curr.kpi.totalVisits;
+    document.getElementById('popVisits').innerHTML = calcPoP(curr.kpi.totalVisits, comp.kpi.totalVisits, false);
+
+    document.getElementById('kpiAttRate').innerText = currAttRate.toFixed(1) + "%";
+    document.getElementById('popAttRate').innerHTML = calcPoP(currAttRate, compAttRate, false);
+
+    // --- 2. RENDER REVENUE (ACTUAL VS BILLED) ---
+    document.getElementById('kpiRevenueCollected').innerText = "RM " + curr.kpi.revenueCollected.toFixed(2);
+    
+    let sysHtml = "Billed: RM " + curr.kpi.revenueSystem.toFixed(2);
+    // If we collected less than we billed, show a tiny red warning icon!
+    if (curr.kpi.revenueCollected < curr.kpi.revenueSystem) {
+         sysHtml += ` <span class="text-danger ms-1" title="Shortfall Detected"><i class="bi bi-exclamation-triangle-fill"></i></span>`;
+    }
+    document.getElementById('kpiRevenueSystem').innerHTML = sysHtml;
+    
+    document.getElementById('popRevenue').innerHTML = calcPoP(curr.kpi.revenueCollected, comp.kpi.revenueCollected, true);
+    document.getElementById('popRevenue').innerHTML = calcPoP(curr.kpi.revenue, comp.kpi.revenue, true);
+
+    // --- NEW: FILL THE BADGES ON THE CHARTS ---
+    const noShowBadge = document.getElementById('lblTotalNoShows');
+    if (noShowBadge) noShowBadge.innerText = curr.kpi.noShows + " Total";
+
+    const attendedBadge = document.getElementById('lblTotalAttended');
+    if (attendedBadge) attendedBadge.innerText = curr.kpi.attended + " Attended";
+    // ------------------------------------------
+
+    // Top Procedure
+    let topProc = Object.entries(curr.charts.procedures).sort((a,b) => b[1].count - a[1].count)[0];
+    document.getElementById('kpiTopProc').innerText = topProc ? topProc[0] : "None";
+    document.getElementById('popTopProc').innerText = topProc ? `${topProc[1].count} performed` : "No data";
+
+    // --- 2. RENDER CHARTS ---
+    
+    // CUSTOM PLUGIN: Draws the Total Number in the exact center of the Doughnut Chart
+    const centerTextPlugin = {
+        id: 'centerText',
+        beforeDraw: function(chart) {
+            if (chart.config.options.plugins.centerText && chart.config.options.plugins.centerText.display) {
+                let ctx = chart.ctx;
+                ctx.restore();
+                
+                let total = chart.config.options.plugins.centerText.text;
+                
+                // Magic Fix: Get the exact geometric center of the doughnut arc!
+                let meta = chart.getDatasetMeta(0);
+                if (!meta.data.length) return; // Failsafe if chart is empty
+                let centerX = meta.data[0].x;
+                let centerY = meta.data[0].y;
+                
+                // Draw the Number
+                ctx.font = "bold 2.5em sans-serif";
+                ctx.textBaseline = "middle";
+                ctx.textAlign = "center"; // Automatically centers the text on the X coordinate
+                ctx.fillStyle = "#2c3e50";
+                ctx.fillText(total, centerX, centerY - 10); 
+                
+                // Draw the Label
+                ctx.font = "bold 0.9em sans-serif";
+                ctx.fillStyle = "#888";
+                ctx.fillText("Total Scheduled", centerX, centerY + 20);
+                ctx.save();
+            }
+        }
+    };
+
+    // Register Plugins
+    Chart.register(ChartDataLabels, centerTextPlugin);
+
+    const drawChart = (id, type, data, options) => {
+        if (chartInstances[id]) chartInstances[id].destroy(); 
+        const ctx = document.getElementById(id).getContext('2d');
+        chartInstances[id] = new Chart(ctx, { type: type, data: data, options: options });
+    };
+
+    // Chart A: REPLACED - Case Type Breakdown (Stacked Horizontal Bar)
+    const ageLabels = Object.keys(curr.charts.ageVsCase);
+    drawChart('chartCaseType', 'bar', {
+        labels: ageLabels,
+        datasets: [{
+            label: 'New Cases',
+            data: ageLabels.map(l => curr.charts.ageVsCase[l].newCase),
+            backgroundColor: '#007a7e'
+        }, {
+            label: 'Follow-ups',
+            data: ageLabels.map(l => curr.charts.ageVsCase[l].followUp),
+            backgroundColor: '#c5a065'
+        }]
+    }, { 
+        indexAxis: 'y', 
+        responsive: true, 
+        maintainAspectRatio: false,
+        scales: { 
+            x: { stacked: true }, 
+            y: { stacked: true } 
+        },
+        plugins: {
+            datalabels: {
+                color: '#fff',
+                font: { weight: 'bold' },
+                display: function(context) { return context.dataset.data[context.dataIndex] > 0; } // Hide 0s
+            }
+        }
+    });
+
+    // Chart B: Demographics (Doughnut - Now with Center Text!)
+    drawChart('chartDemo', 'doughnut', {
+        labels: Object.keys(curr.charts.demographics),
+        datasets: [{
+            data: Object.values(curr.charts.demographics),
+            backgroundColor: ['#c5a065', '#007a7e', '#2c3e50', '#e74c3c'],
+            cutout: '65%' // Makes the doughnut hole slightly larger for the text
+        }]
+    }, { 
+        responsive: true, maintainAspectRatio: false, 
+        plugins: { 
+            legend: { position: 'right' },
+            centerText: { display: true, text: curr.kpi.totalVisits }, // Activates our custom plugin!
+            datalabels: {
+                color: '#fff',
+                font: { weight: 'bold', size: 12 },
+                formatter: (value, ctx) => {
+                    let sum = 0;
+                    let dataArr = ctx.chart.data.datasets[0].data;
+                    dataArr.map(data => { sum += data; });
+                    return (value * 100 / sum).toFixed(1) + "%";
+                }
+            }
+        } 
+    });
+
+    // Chart C: Procedures (Horizontal Bar)
+    let sortedProcs = Object.entries(curr.charts.procedures).sort((a,b) => b[1].revenue - a[1].revenue).slice(0, 10);
+    drawChart('chartProcedures', 'bar', {
+        labels: sortedProcs.map(p => p[0]),
+        datasets: [{
+            label: 'Revenue (RM)',
+            data: sortedProcs.map(p => p[1].revenue),
+            backgroundColor: '#007a7e'
+        }]
+    }, { 
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+            datalabels: {
+                color: '#fff',
+                anchor: 'end',
+                align: 'start',
+                font: { weight: 'bold' },
+                formatter: (value) => { return value > 0 ? "RM " + value : ""; } 
+            }
+        }
+    });
+
+    // Chart D: Supervisor Workload (Bar - Allocated vs Actual in HOURS)
+    const supLabels = Object.keys(curr.charts.supervisorTime);
+    const timeFormatter = (value) => {
+        if (!value || value === 0) return '';
+        let totalMins = Math.round(value * 60);
+        let hrs = Math.floor(totalMins / 60);
+        let mins = totalMins % 60;
+        return (hrs > 0 ? hrs + 'h ' : '') + (mins > 0 ? mins + 'm' : (hrs > 0 ? '' : '0m'));
+    };
+
+    drawChart('chartSupervisor', 'bar', {
+        labels: supLabels,
+        datasets: [{
+            label: 'Total Allocated Time',
+            data: supLabels.map(s => curr.charts.supervisorTime[s].allocated), 
+            backgroundColor: '#c5a065'
+        }, {
+            label: 'Total Actual Time',
+            data: supLabels.map(s => curr.charts.supervisorTime[s].actual),
+            backgroundColor: '#2c3e50'
+        }]
+    }, { 
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            y: { title: { display: true, text: 'Total Hours' } }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: { label: function(context) { return context.dataset.label + ': ' + timeFormatter(context.raw); } }
+            },
+            datalabels: {
+                color: '#fff',
+                font: { size: 10, weight: 'bold' },
+                formatter: timeFormatter 
+            }
+        }
+    });
+
+    // Chart E: No-Show Reasons (Horizontal Bar)
+    // Sort by highest count and slice to keep only the top 7 reasons
+    let sortedReasons = Object.entries(curr.charts.noShowReasons)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 7); 
+
+    // Truncate long sentences so they don't break the chart layout
+    let reasonLabels = sortedReasons.map(r => r[0].length > 35 ? r[0].substring(0, 35) + '...' : r[0]);
+
+    drawChart('chartNoShow', 'bar', {
+        labels: reasonLabels,
+        datasets: [{
+            label: 'Number of Patients',
+            data: sortedReasons.map(r => r[1]),
+            backgroundColor: '#dc3545' // Danger Red
+        }]
+    }, { 
+        indexAxis: 'y', 
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: {
+            datalabels: {
+                color: '#fff',
+                font: { weight: 'bold' }
+            },
+            tooltip: {
+                callbacks: {
+                    // Show the FULL reason text when hovering over the bar
+                    title: function(context) { return sortedReasons[context[0].dataIndex][0]; }
+                }
+            }
+        }
+    });
+
+    // Chart F: Referral Sources (Doughnut)
+    drawChart('chartReferrals', 'doughnut', {
+        labels: Object.keys(curr.charts.referrals),
+        datasets: [{
+            data: Object.values(curr.charts.referrals),
+            backgroundColor: ['#007a7e', '#c5a065', '#2c3e50', '#e74c3c', '#fd7e14', '#6c757d']
+        }]
+    }, { 
+        responsive: true, maintainAspectRatio: false, 
+        plugins: { 
+            legend: { position: 'right' },
+            datalabels: {
+                color: '#fff',
+                font: { weight: 'bold', size: 12 },
+                formatter: (value, ctx) => {
+                    let sum = 0;
+                    ctx.chart.data.datasets[0].data.map(data => { sum += data; });
+                    return (value * 100 / sum).toFixed(1) + "%";
+                },
+                display: function(context) { return context.dataset.data[context.dataIndex] > 0; }
+            }
+        } 
+    });
+}
