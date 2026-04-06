@@ -4733,51 +4733,72 @@ function auditMissingCensuses() {
 
 // --- JUMP DIRECTLY TO CENSUS FROM AUDIT MODAL ---
 function resolveMissingCensus(ic, dateStr) {
-    // 1. Hide the Audit Modal
+    // 1. Hide the Audit Modal immediately
     const modalEl = document.getElementById('missingCensusModal');
-    if (modalEl) bootstrap.Modal.getInstance(modalEl).hide();
+    if (modalEl) {
+        const bsModal = bootstrap.Modal.getInstance(modalEl);
+        if (bsModal) bsModal.hide();
+    }
     
     document.body.style.cursor = 'wait';
-    showToast("Fetching patient records...", "info");
+    showToast("Preparing Clinical Census...", "info");
+
+    // Clean up the IC to prevent search crashes
+    let cleanIC = String(ic).replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
     // 2. Fetch Patient Demographics from Database
     google.script.run.withSuccessHandler(data => {
         document.body.style.cursor = 'default';
         
         // Setup global state
-        if (data.found) {
+        if (data && data.found) {
             currentPatientData = data;
         } else {
-            currentPatientData = { ic: ic, name: '', contact: '', rn: '', email: '', address: '' };
+            currentPatientData = { ic: cleanIC, name: '', contact: '', rn: '', email: '', address: '' };
         }
 
-        // 3. Teleport to the Census Form (This resets previous forms cleanly)
-        window.isProceedingFromDashboard = true;
-        startNewPatient();
-        window.isProceedingFromDashboard = false;
+        // Wait 300ms for the modal to finish closing, then Teleport!
+        setTimeout(() => {
+            window.isProceedingFromDashboard = true;
+            startNewPatient(); // This triggers showPage('census') and resets the form
+            window.isProceedingFromDashboard = false;
 
-        // 4. INJECT THE MISSING DATA
-        const dateField = document.getElementById('inp_visitDate');
-        if (dateField) dateField.value = dateStr;
+            // INJECT THE MISSING DATA
+            const dateField = document.getElementById('inp_visitDate');
+            if (dateField) dateField.value = dateStr;
 
-        document.getElementById('inp_ic').value = ic;
+            document.getElementById('inp_ic').value = cleanIC;
+            
+            if (data && data.found) {
+                document.getElementById('inp_name').value = data.name || '';
+                document.getElementById('inp_rn').value = data.rn || '';
+                document.getElementById('inp_contact').value = data.contact || '';
+                document.getElementById('inp_email').value = data.email || '';
+                document.getElementById('inp_address').value = data.address || '';
+                document.getElementById('inp_ecName').value = data.ecName || '';
+                document.getElementById('inp_ecContact').value = data.ecContact || '';
+                document.getElementById('inp_ecRel').value = data.ecRel || '';
+                document.getElementById('inp_category').value = data.category || 'Standard';
+            }
+            
+            // Engage Security Locks (Students can't edit IC/Names)
+            applyDemographicLocks();
+
+            showToast("Census prepared for missing date: " + dateStr, "success");
+        }, 300);
+
+    }).withFailureHandler(err => {
+        document.body.style.cursor = 'default';
         
-        if (data.found) {
-            document.getElementById('inp_name').value = data.name || '';
-            document.getElementById('inp_rn').value = data.rn || '';
-            document.getElementById('inp_contact').value = data.contact || '';
-            document.getElementById('inp_email').value = data.email || '';
-            document.getElementById('inp_address').value = data.address || '';
-            document.getElementById('inp_ecName').value = data.ecName || '';
-            document.getElementById('inp_ecContact').value = data.ecContact || '';
-            document.getElementById('inp_ecRel').value = data.ecRel || '';
-            document.getElementById('inp_category').value = data.category || 'Standard';
-        }
-        
-        // Engage Security Locks (Students can't edit IC/Names)
-        applyDemographicLocks();
+        // EVEN IF SERVER FAILS, FORCE OPEN THE PAGE!
+        setTimeout(() => {
+            window.isProceedingFromDashboard = true;
+            startNewPatient(); 
+            window.isProceedingFromDashboard = false;
+            document.getElementById('inp_ic').value = cleanIC;
+            document.getElementById('inp_visitDate').value = dateStr;
+            showToast("Server timeout. Please fill details manually.", "warning");
+        }, 300);
 
-        showToast("Census prepared for missing date: " + dateStr, "success");
-
-    }).withFailureHandler(handleServerFailure).getPatientDetails(ic);
+    }).getPatientDetails(cleanIC);
 }
