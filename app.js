@@ -55,7 +55,7 @@ function createGasProxy(successCallback, failureCallback) {
   let globalQueueData = [];
   let currentPatientData = {};
   let currentViewMode = 'day';
-  let currentUser = ""; 
+  let currentUser = "<?!= Session.getActiveUser().getEmail(); ?>"; 
   let currentVisitId = null;
   let pendingBookingItem = null;
   let currentUserRole = "";
@@ -2871,8 +2871,9 @@ function applyRBAC() {
         savePatBtn.style.display = isStudent ? 'none' : 'inline-block';
     }
 
-    // Note: Payment, Report Printing, and Census Editing are already actively protected 
-    // inside the loadQueue(), generateReport(), and renderHistory() functions!
+    // 6. AUDIT BUTTON
+    const auditBtn = document.getElementById('btnAuditMissing');
+    if (auditBtn) auditBtn.style.display = isAdmin ? 'inline-block' : 'none';
 }
 
 function toggleDiscountReason() {
@@ -4310,273 +4311,146 @@ function checkWeekendRequirement() {
 }
 
 // ==========================================
-// HSP ADVANCED ANALYTICS CONTROLLER
-// ==========================================
-
-let globalHlCases = [];
-let globalRefCases = [];
-
-function triggerStatsFetch() {
-    const container = document.getElementById('stat_cards_container');
-    container.innerHTML = '<div class="col-12 text-center p-4 text-primary"><span class="spinner-border"></span><br><small class="fw-bold mt-2 d-block">Cross-referencing databases...</small></div>';
-    
-    const filters = {
-        semester: document.getElementById('stat_sem').value,
-        location: document.getElementById('stat_loc').value,
-        venue: document.getElementById('stat_ven').value,
-        useDateFilter: document.getElementById('stat_use_date').checked,
-        startDate: document.getElementById('stat_start').value,
-        endDate: document.getElementById('stat_end').value
-    };
-
-    google.script.run.withSuccessHandler(res => {
-        if (!res.success) { showToast("Failed to load stats.", "error"); return; }
-        
-        const fillDrop = (id, options) => {
-            const el = document.getElementById(id);
-            if (el.options.length <= 1) {
-                options.forEach(opt => el.add(new Option(opt, opt)));
-            }
-        };
-        fillDrop('stat_sem', res.dropdowns.semesters);
-        fillDrop('stat_loc', res.dropdowns.locations);
-        fillDrop('stat_ven', res.dropdowns.venues);
-
-        const s = res.stats;
-        
-        // Save the exact case data for the drill-downs!
-        globalHlCases = s.hlCases;
-        globalRefCases = s.refCases;
-        
-        let totalOverall = s.overallPass + s.overallRefer;
-        let passRate = totalOverall > 0 ? Math.round((s.overallPass / totalOverall) * 100) : 0;
-        let referRate = totalOverall > 0 ? Math.round((s.overallRefer / totalOverall) * 100) : 0;
-        let attRate = s.givenAppt > 0 ? Math.round((s.attended / s.givenAppt) * 100) : 0;
-
-        // Render Main KPI Cards (Removed External Referrals Box)
-        container.innerHTML = `
-            <div class="col">
-                <div class="card border-0 shadow-sm border-bottom border-primary border-3 h-100 text-center p-3">
-                    <h2 class="fw-bold text-primary mb-0">${s.totalScreened}</h2><small class="text-muted fw-bold">Total Screened</small>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card border-0 shadow-sm border-bottom border-success border-3 h-100 text-center p-3">
-                    <h2 class="fw-bold text-success mb-0">${passRate}%</h2><small class="text-muted fw-bold">Pass Rate</small>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card border-0 shadow-sm border-bottom border-danger border-3 h-100 text-center p-3">
-                    <h2 class="fw-bold text-danger mb-0">${referRate}%</h2><small class="text-muted fw-bold">Refer Rate (${s.overallRefer})</small>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card border-0 shadow-sm border-bottom border-info border-3 h-100 text-center p-3 bg-info bg-opacity-10">
-                    <h2 class="fw-bold text-info mb-0">${s.givenAppt}</h2><small class="text-dark fw-bold">Appts Given</small>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card border-0 shadow-sm border-bottom border-warning border-3 h-100 text-center p-3 bg-warning bg-opacity-10">
-                    <h2 class="fw-bold text-warning mb-0">${attRate}%</h2><small class="text-dark fw-bold">Attended (${s.attended})</small>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card border-0 shadow border-bottom border-dark border-3 h-100 text-center p-3 bg-dark text-white action-hover" 
-                     style="cursor:pointer;" onclick="openDrilldown('hl')" title="Click to view details">
-                    <h2 class="fw-bold text-warning mb-0">${s.confirmedHL}</h2>
-                    <small class="fw-bold">Confirmed HL <i class="bi bi-box-arrow-up-right ms-1"></i></small>
-                </div>
-            </div>
-        `;
-
-        const buildRow = (name, testObj) => {
-            let total = testObj.pass + testObj.refer;
-            let refP = total > 0 ? Math.round((testObj.refer / total) * 100) : 0;
-            let barColor = refP > 20 ? 'bg-danger' : 'bg-warning';
-            return `
-                <tr>
-                    <td class="text-start ps-4 fw-bold text-dark">${name}</td>
-                    <td class="text-success fw-bold">${testObj.pass}</td>
-                    <td class="text-danger fw-bold">${testObj.refer}</td>
-                    <td class="w-25 pe-4">
-                        <div class="d-flex align-items-center justify-content-center gap-2">
-                            <div class="progress flex-grow-1" style="height: 8px;"><div class="progress-bar ${barColor}" style="width: ${refP}%"></div></div>
-                            <span class="small fw-bold">${refP}%</span>
-                        </div>
-                    </td>
-                </tr>`;
-        };
-
-        let tHtml = buildRow("Otoscopy (Overall)", s.tests.oto);
-        tHtml += buildRow("Tympanometry", s.tests.tymp);
-        tHtml += buildRow("OAE", s.tests.oae);
-        tHtml += buildRow("DTT", s.tests.dtt);
-        tHtml += buildRow("iLAMP", s.tests.ilamp);
-        tHtml += buildRow("PTA", s.tests.pta);
-        
-        document.getElementById('stat_test_body').innerHTML = tHtml;
-
-    }).withFailureHandler(handleServerFailure).getHSPAnalyticsData(filters);
-}
-
-// DRILL-DOWN POPUP GENERATOR
-function openDrilldown(type) {
-    const title = document.getElementById('drilldownTitle');
-    const headers = document.getElementById('drilldownHeaders');
-    const body = document.getElementById('drilldownBody');
-    
-    let html = '';
-    
-    if (type === 'hl') {
-        if (globalHlCases.length === 0) { showToast("No confirmed hearing loss cases found for this filter.", "info"); return; }
-        
-        title.innerHTML = '<i class="bi bi-ear-fill text-warning"></i> Confirmed Hearing Loss Cases';
-        headers.innerHTML = '<th class="ps-4">Patient Name</th><th>IC / Contact</th><th>Diagnostic Profile</th>';
-        
-        globalHlCases.forEach(c => {
-            // Highlighter: Makes key Audiology terms pop out visually
-            let formattedDiag = c.diag.replace(/\b(Mild|Moderate|Severe|Profound|SNHL|Conductive|Mixed|Bilateral|Right|Left|Loss)\b/gi, match => `<strong class="text-primary">${match}</strong>`);
-            
-            html += `<tr>
-                <td class="fw-bold ps-4">${c.name}</td>
-                <td class="text-muted small">${c.ic}</td>
-                <td class="small" style="max-width: 400px; white-space: pre-wrap;">${formattedDiag}</td>
-            </tr>`;
-        });
-    } 
-    else if (type === 'ref') {
-        if (globalRefCases.length === 0) { showToast("No external referrals found for this filter.", "info"); return; }
-        
-        title.innerHTML = '<i class="bi bi-hospital text-info"></i> External Referrals & Plans';
-        headers.innerHTML = '<th class="ps-4">Patient Name</th><th>IC / Contact</th><th>Referral Destination & Notes</th>';
-        
-        globalRefCases.forEach(c => {
-            html += `<tr>
-                <td class="fw-bold ps-4">${c.name}</td>
-                <td class="text-muted small">${c.ic}</td>
-                <td class="text-danger fw-bold small" style="max-width: 400px; white-space: pre-wrap;"><i class="bi bi-arrow-right-circle"></i> ${c.refs}</td>
-            </tr>`;
-        });
-    }
-    
-    body.innerHTML = html;
-    new bootstrap.Modal(document.getElementById('hspDrilldownModal')).show();
-}
-
-const backupShowPage = showPage;
-showPage = function(pageId) {
-    backupShowPage(pageId); 
-    if (pageId === 'hsp-analytics') {
-        triggerStatsFetch();
-    }
-};
-
-// ==========================================
 // ADVANCED ANALYTICS UI ENGINE
 // ==========================================
-let chartInstances = {}; // Keeps track of charts so we can delete them before redrawing
+let chartInstances = {}; 
+window.popTrendData = { curr: null, comp: null }; // Global memory for the PoP Dropdown
 
 function openAnalyticsDashboard() {
     showPage('analytics');
-    
-    // Auto-select "This Month" the first time they open it
-    document.getElementById('analyticsPreset').value = 'thisMonth';
-    applyAnalyticsPreset();
+    document.getElementById('presetOverview').value = 'thisMonth';
+    applyAnalyticsPreset('overview'); // Load Overview first!
 }
 
-// --- NEW: QUICK SELECTOR ENGINE ---
-function applyAnalyticsPreset() {
-    let preset = document.getElementById('analyticsPreset').value;
+// --- TAB & FILTER SWITCHER ---
+function toggleAnalyticsTab(tab) {
+    const btnOverview = document.getElementById('btn-tab-overview');
+    const btnCompare = document.getElementById('btn-tab-compare');
+    const viewOverview = document.getElementById('analytics-overview-view');
+    const viewCompare = document.getElementById('analytics-compare-view');
+    
+    const filterOverview = document.getElementById('filter-overview');
+    const filterCompare = document.getElementById('filter-compare');
+
+    if (tab === 'overview') {
+        btnOverview.className = 'nav-link bg-iium text-white fw-bold shadow-sm';
+        btnCompare.className = 'nav-link text-secondary fw-bold';
+        
+        viewOverview.classList.remove('d-none');
+        filterOverview.classList.remove('d-none');
+        
+        viewCompare.classList.add('d-none');
+        filterCompare.classList.add('d-none');
+    } else {
+        btnOverview.className = 'nav-link text-secondary fw-bold';
+        btnCompare.className = 'nav-link bg-iium text-white fw-bold shadow-sm';
+        
+        viewOverview.classList.add('d-none');
+        filterOverview.classList.add('d-none');
+        
+        viewCompare.classList.remove('d-none');
+        filterCompare.classList.remove('d-none');
+        
+        // Auto-fill Period boxes the first time they switch
+        if (!document.getElementById('startA').value) {
+            document.getElementById('presetCompare').value = 'thisMonth';
+            applyAnalyticsPreset('compare');
+        }
+    }
+}
+
+// --- QUICK SELECTOR ENGINE (Fills A and B) ---
+function applyAnalyticsPreset(mode) {
+    let preset = document.getElementById(mode === 'overview' ? 'presetOverview' : 'presetCompare').value;
     if (preset === 'custom') return;
 
-    let start = new Date();
-    let end = new Date();
+    let startA = new Date(), endA = new Date();
+    let startB = new Date(), endB = new Date();
 
     if (preset === 'thisMonth') {
-        start = new Date(end.getFullYear(), end.getMonth(), 1);
+        startA = new Date(endA.getFullYear(), endA.getMonth(), 1);
+        startB = new Date(endA.getFullYear(), endA.getMonth() - 1, 1);
+        endB = new Date(endA.getFullYear(), endA.getMonth(), 0);
     } else if (preset === 'lastMonth') {
-        start = new Date(end.getFullYear(), end.getMonth() - 1, 1);
-        end = new Date(end.getFullYear(), end.getMonth(), 0);
+        startA = new Date(endA.getFullYear(), endA.getMonth() - 1, 1);
+        endA = new Date(endA.getFullYear(), endA.getMonth(), 0);
+        startB = new Date(endA.getFullYear(), endA.getMonth() - 2, 1);
+        endB = new Date(endA.getFullYear(), endA.getMonth() - 1, 0);
     } else if (preset === 'thisQuarter') {
-        let currentQuarter = Math.floor(end.getMonth() / 3);
-        start = new Date(end.getFullYear(), currentQuarter * 3, 1);
+        let q = Math.floor(endA.getMonth() / 3);
+        startA = new Date(endA.getFullYear(), q * 3, 1);
+        startB = new Date(endA.getFullYear(), (q - 1) * 3, 1);
+        endB = new Date(endA.getFullYear(), q * 3, 0);
     } else if (preset === 'thisYear') {
-        start = new Date(end.getFullYear(), 0, 1);
+        startA = new Date(endA.getFullYear(), 0, 1);
+        startB = new Date(endA.getFullYear() - 1, 0, 1);
+        endB = new Date(endA.getFullYear() - 1, 11, 31);
     }
     
-    // Format YYYY-MM-DD for the input boxes
     const formatIso = d => {
         let mm = String(d.getMonth() + 1).padStart(2, '0');
         let dd = String(d.getDate()).padStart(2, '0');
         return `${d.getFullYear()}-${mm}-${dd}`;
     };
 
-    document.getElementById('analyticsStart').value = formatIso(start);
-    document.getElementById('analyticsEnd').value = formatIso(end);
+    if (mode === 'overview') {
+        document.getElementById('startOverview').value = formatIso(startA);
+        document.getElementById('endOverview').value = formatIso(endA);
+    } else {
+        document.getElementById('startA').value = formatIso(startA);
+        document.getElementById('endA').value = formatIso(endA);
+        document.getElementById('startB').value = formatIso(startB);
+        document.getElementById('endB').value = formatIso(endB);
+    }
 
-    // Instantly load the chart with the new dates
     loadAdvancedAnalytics();
 }
 
 function loadAdvancedAnalytics() {
-    const startVal = document.getElementById('analyticsStart').value;
-    const endVal = document.getElementById('analyticsEnd').value;
-    const doCompare = document.getElementById('analyticsCompare').checked;
+    let isCompareMode = !document.getElementById('filter-compare').classList.contains('d-none');
+    let payload = { currentStart: null, currentEnd: null, compareStart: null, compareEnd: null };
     
-    if (!startVal || !endVal) return alert("Please select a date range.");
-    
-    let payload = { currentStart: startVal, currentEnd: endVal, compareStart: null, compareEnd: null };
-    
-    if (doCompare) {
-        let sDate = new Date(startVal);
-        let eDate = new Date(endVal);
-        let diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+    if (isCompareMode) {
+        payload.currentStart = document.getElementById('startA').value;
+        payload.currentEnd = document.getElementById('endA').value;
+        payload.compareStart = document.getElementById('startB').value;
+        payload.compareEnd = document.getElementById('endB').value;
         
-        let cEnd = new Date(sDate); cEnd.setDate(cEnd.getDate() - 1);
-        let cStart = new Date(cEnd); cStart.setDate(cStart.getDate() - diffDays + 1);
+        if (!payload.currentStart || !payload.compareStart) return showToast("Please select dates for Period A and B.", "warning");
+    } else {
+        payload.currentStart = document.getElementById('startOverview').value;
+        payload.currentEnd = document.getElementById('endOverview').value;
         
-        payload.compareStart = cStart.toISOString().split('T')[0];
-        payload.compareEnd = cEnd.toISOString().split('T')[0];
+        if (!payload.currentStart || !payload.currentEnd) return showToast("Please select a date range.", "warning");
     }
     
-    // --- SHOW LOADING SPINNERS & FADE CHARTS ---
-    const spinHtml = '<span class="spinner-border spinner-border-sm text-primary"></span>';
-    
-    document.getElementById('kpiVisits').innerHTML = spinHtml;
-    document.getElementById('kpiAttRate').innerHTML = spinHtml;
-    document.getElementById('kpiRevenueCollected').innerHTML = spinHtml;
-    if (document.getElementById('kpiTopProc')) document.getElementById('kpiTopProc').innerHTML = spinHtml;
-    
-    document.body.style.cursor = 'wait'; // Turn mouse into a loading circle
-    
-    // Fade out the old charts so the user knows they are recalculating
-    const chartIds = ['chartCaseType', 'chartDemo', 'chartProcedures', 'chartSupervisor', 'chartNoShow', 'chartReferrals'];
+    // --- FADE OUT CHARTS ---
+    const chartIds = ['chartTrend', 'chartCaseType', 'chartDemo', 'chartProcedures', 'chartSupervisor', 'chartNoShow', 'chartReferrals', 'chartCompareTrend', 'chartCompareKPIs', 'chartCompareFinance', 'chartCompareCaseType', 'chartCompareProcedures'];
     chartIds.forEach(id => {
         const el = document.getElementById(id);
-        if (el) {
-            el.style.opacity = '0.3'; 
-            el.style.transition = 'opacity 0.3s ease'; // Smooth fade effect
-        }
+        if (el) { el.style.opacity = '0.3'; el.style.transition = 'opacity 0.3s ease'; }
     });
-    // -------------------------------------------
+
+    document.body.style.cursor = 'wait'; 
     
-    // 🔥 NEW: Added .withFailureHandler to catch server crashes instantly!
     google.script.run
         .withSuccessHandler(renderAnalytics)
         .withFailureHandler(handleServerFailure)
         .getAdvancedDashboardData(payload);
 }
 
+function drawChart(id, type, data, options) {
+    if (chartInstances[id]) chartInstances[id].destroy(); 
+    const ctx = document.getElementById(id).getContext('2d');
+    chartInstances[id] = new Chart(ctx, { type: type, data: data, options: options });
+}
+
 function renderAnalytics(res) {
-    document.body.style.cursor = 'default'; // Reset the mouse
-    
-    if (!res.success) {
-        showToast("Failed to load analytics.", "error");
-        return; 
-    }
+    document.body.style.cursor = 'default'; 
+    if (!res.success) { showToast("Failed to load analytics.", "error"); return; }
     
     // Snap the charts back to full visibility
-    const chartIds = ['chartCaseType', 'chartDemo', 'chartProcedures', 'chartSupervisor', 'chartNoShow', 'chartReferrals'];
+    const chartIds = ['chartTrend', 'chartCaseType', 'chartDemo', 'chartProcedures', 'chartSupervisor', 'chartNoShow', 'chartReferrals', 'chartCompareTrend', 'chartCompareKPIs', 'chartCompareFinance', 'chartCompareCaseType', 'chartCompareProcedures'];
     chartIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.opacity = '1.0'; 
@@ -4585,264 +4459,274 @@ function renderAnalytics(res) {
     const curr = res.current;
     const comp = res.compare;
     
-    // --- 1. RENDER KPIs with PoP Math ---
-    const calcPoP = (currVal, compVal, isCurrency) => {
-        if (!document.getElementById('analyticsCompare').checked || compVal === 0) return `<span class="text-muted">No comparison data</span>`;
-        let pct = ((currVal - compVal) / compVal) * 100;
-        let icon = pct > 0 ? '<i class="bi bi-arrow-up-short"></i>' : (pct < 0 ? '<i class="bi bi-arrow-down-short"></i>' : '=');
-        let color = pct > 0 ? 'text-success' : (pct < 0 ? 'text-danger' : 'text-muted');
-        return `<span class="${color} fw-bold">${icon} ${Math.abs(pct).toFixed(1)}%</span> <span class="text-muted small">vs prev</span>`;
-    };
-
-    let currAttRate = curr.kpi.totalVisits > 0 ? (curr.kpi.attended / curr.kpi.totalVisits) * 100 : 0;
-    let compAttRate = comp.kpi.totalVisits > 0 ? (comp.kpi.attended / comp.kpi.totalVisits) * 100 : 0;
-
-    document.getElementById('kpiVisits').innerText = curr.kpi.totalVisits;
-    document.getElementById('popVisits').innerHTML = calcPoP(curr.kpi.totalVisits, comp.kpi.totalVisits, false);
-
-    document.getElementById('kpiAttRate').innerText = currAttRate.toFixed(1) + "%";
-    document.getElementById('popAttRate').innerHTML = calcPoP(currAttRate, compAttRate, false);
-
-    // --- 2. RENDER REVENUE (ACTUAL VS BILLED) ---
-    document.getElementById('kpiRevenueCollected').innerText = "RM " + curr.kpi.revenueCollected.toFixed(2);
-    
-    let sysHtml = "Billed: RM " + curr.kpi.revenueSystem.toFixed(2);
-    // If we collected less than we billed, show a tiny red warning icon!
-    if (curr.kpi.revenueCollected < curr.kpi.revenueSystem) {
-         sysHtml += ` <span class="text-danger ms-1" title="Shortfall Detected"><i class="bi bi-exclamation-triangle-fill"></i></span>`;
-    }
-    document.getElementById('kpiRevenueSystem').innerHTML = sysHtml;
-    
-    document.getElementById('popRevenue').innerHTML = calcPoP(curr.kpi.revenueCollected, comp.kpi.revenueCollected, true);
-    document.getElementById('popRevenue').innerHTML = calcPoP(curr.kpi.revenue, comp.kpi.revenue, true);
-
-    // --- NEW: FILL THE BADGES ON THE CHARTS ---
-    const noShowBadge = document.getElementById('lblTotalNoShows');
-    if (noShowBadge) noShowBadge.innerText = curr.kpi.noShows + " Total";
-
-    const attendedBadge = document.getElementById('lblTotalAttended');
-    if (attendedBadge) attendedBadge.innerText = curr.kpi.attended + " Attended";
-    // ------------------------------------------
-
-    // Top Procedure
-    let topProc = Object.entries(curr.charts.procedures).sort((a,b) => b[1].count - a[1].count)[0];
-    document.getElementById('kpiTopProc').innerText = topProc ? topProc[0] : "None";
-    document.getElementById('popTopProc').innerText = topProc ? `${topProc[1].count} performed` : "No data";
-
-    // --- 2. RENDER CHARTS ---
-    
-    // CUSTOM PLUGIN: Draws the Total Number in the exact center of the Doughnut Chart
+    // Custom center text plugin for Doughnuts
     const centerTextPlugin = {
         id: 'centerText',
         beforeDraw: function(chart) {
             if (chart.config.options.plugins.centerText && chart.config.options.plugins.centerText.display) {
-                let ctx = chart.ctx;
-                ctx.restore();
-                
+                let ctx = chart.ctx; ctx.restore();
                 let total = chart.config.options.plugins.centerText.text;
-                
-                // Magic Fix: Get the exact geometric center of the doughnut arc!
                 let meta = chart.getDatasetMeta(0);
-                if (!meta.data.length) return; // Failsafe if chart is empty
-                let centerX = meta.data[0].x;
-                let centerY = meta.data[0].y;
+                if (!meta.data.length) return; 
+                let centerX = meta.data[0].x; let centerY = meta.data[0].y;
                 
-                // Draw the Number
-                ctx.font = "bold 2.5em sans-serif";
-                ctx.textBaseline = "middle";
-                ctx.textAlign = "center"; // Automatically centers the text on the X coordinate
-                ctx.fillStyle = "#2c3e50";
+                ctx.font = "bold 2.5em sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "center"; ctx.fillStyle = "#2c3e50";
                 ctx.fillText(total, centerX, centerY - 10); 
-                
-                // Draw the Label
-                ctx.font = "bold 0.9em sans-serif";
-                ctx.fillStyle = "#888";
-                ctx.fillText("Total Scheduled", centerX, centerY + 20);
-                ctx.save();
+                ctx.font = "bold 0.9em sans-serif"; ctx.fillStyle = "#888";
+                ctx.fillText("Total Scheduled", centerX, centerY + 20); ctx.save();
             }
         }
     };
-
-    // Register Plugins
     Chart.register(ChartDataLabels, centerTextPlugin);
 
-    const drawChart = (id, type, data, options) => {
-        if (chartInstances[id]) chartInstances[id].destroy(); 
-        const ctx = document.getElementById(id).getContext('2d');
-        chartInstances[id] = new Chart(ctx, { type: type, data: data, options: options });
-    };
+    // --- 1. POPULATE OVERVIEW KPIs ---
+    let currAttRate = curr.kpi.totalVisits > 0 ? (curr.kpi.attended / curr.kpi.totalVisits) * 100 : 0;
+    document.getElementById('kpiVisits').innerText = curr.kpi.totalVisits;
+    document.getElementById('kpiAttRate').innerText = currAttRate.toFixed(1) + "%";
+    document.getElementById('kpiRevenueCollected').innerText = "RM " + curr.kpi.revenueCollected.toFixed(2);
+    
+    let sysHtml = "Billed: RM " + curr.kpi.revenueSystem.toFixed(2);
+    if (curr.kpi.revenueCollected < curr.kpi.revenueSystem) {
+         sysHtml += ` <span class="text-danger ms-1" title="Shortfall Detected"><i class="bi bi-exclamation-triangle-fill"></i></span>`;
+    }
+    document.getElementById('kpiRevenueSystem').innerHTML = sysHtml;
 
-    // Chart A: REPLACED - Case Type Breakdown (Stacked Horizontal Bar)
+    document.getElementById('lblTotalNoShows').innerText = curr.kpi.noShows + " Total";
+    document.getElementById('lblTotalAttended').innerText = curr.kpi.attended + " Attended";
+
+    let topProc = Object.entries(curr.charts.procedures).sort((a,b) => b[1].count - a[1].count)[0];
+    document.getElementById('kpiTopProc').innerText = topProc ? topProc[0] : "None";
+
+    // --- 2. RENDER OVERVIEW CHARTS ---
+    
+    // Overview Trend Line Chart
+    let sortedDates = Object.keys(curr.charts.trend).sort((a, b) => new Date(a) - new Date(b));
+    let trendScheduled = sortedDates.map(d => curr.charts.trend[d].attended + curr.charts.trend[d].noShow + curr.charts.trend[d].other);
+    let trendAttended = sortedDates.map(d => curr.charts.trend[d].attended);
+    let trendNoShow = sortedDates.map(d => curr.charts.trend[d].noShow);
+
+    drawChart('chartTrend', 'line', {
+        labels: sortedDates,
+        datasets: [
+            { label: 'Scheduled', data: trendScheduled, borderColor: '#6c757d', backgroundColor: 'rgba(108, 117, 125, 0.1)', borderDash: [5, 5], fill: false, tension: 0.3 },
+            { label: 'Attended', data: trendAttended, borderColor: '#198754', backgroundColor: 'rgba(25, 135, 84, 0.2)', fill: true, tension: 0.3 },
+            { label: 'No-Show / Cancelled', data: trendNoShow, borderColor: '#dc3545', backgroundColor: 'rgba(220, 53, 69, 0.1)', fill: false, tension: 0.3 }
+        ]
+    }, { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } });
+
+    // Other Overview Charts
     const ageLabels = Object.keys(curr.charts.ageVsCase);
     drawChart('chartCaseType', 'bar', {
         labels: ageLabels,
-        datasets: [{
-            label: 'New Cases',
-            data: ageLabels.map(l => curr.charts.ageVsCase[l].newCase),
-            backgroundColor: '#007a7e'
-        }, {
-            label: 'Follow-ups',
-            data: ageLabels.map(l => curr.charts.ageVsCase[l].followUp),
-            backgroundColor: '#c5a065'
-        }]
-    }, { 
-        indexAxis: 'y', 
-        responsive: true, 
-        maintainAspectRatio: false,
-        scales: { 
-            x: { stacked: true }, 
-            y: { stacked: true } 
-        },
-        plugins: {
-            datalabels: {
-                color: '#fff',
-                font: { weight: 'bold' },
-                display: function(context) { return context.dataset.data[context.dataIndex] > 0; } // Hide 0s
-            }
-        }
-    });
+        datasets: [
+            { label: 'New Cases', data: ageLabels.map(l => curr.charts.ageVsCase[l].newCase), backgroundColor: '#007a7e' }, 
+            { label: 'Follow-ups', data: ageLabels.map(l => curr.charts.ageVsCase[l].followUp), backgroundColor: '#c5a065' }
+        ]
+    }, { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } }, plugins: { datalabels: { color: '#fff', font: { weight: 'bold' }, display: function(context) { return context.dataset.data[context.dataIndex] > 0; } } } });
 
-    // Chart B: Demographics (Doughnut - Now with Center Text!)
     drawChart('chartDemo', 'doughnut', {
         labels: Object.keys(curr.charts.demographics),
-        datasets: [{
-            data: Object.values(curr.charts.demographics),
-            backgroundColor: ['#c5a065', '#007a7e', '#2c3e50', '#e74c3c'],
-            cutout: '65%' // Makes the doughnut hole slightly larger for the text
-        }]
-    }, { 
-        responsive: true, maintainAspectRatio: false, 
-        plugins: { 
-            legend: { position: 'right' },
-            centerText: { display: true, text: curr.kpi.totalVisits }, // Activates our custom plugin!
-            datalabels: {
-                color: '#fff',
-                font: { weight: 'bold', size: 12 },
-                formatter: (value, ctx) => {
-                    let sum = 0;
-                    let dataArr = ctx.chart.data.datasets[0].data;
-                    dataArr.map(data => { sum += data; });
-                    return (value * 100 / sum).toFixed(1) + "%";
-                }
-            }
-        } 
-    });
+        datasets: [{ data: Object.values(curr.charts.demographics), backgroundColor: ['#c5a065', '#007a7e', '#2c3e50', '#e74c3c'], cutout: '65%' }]
+    }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, centerText: { display: true, text: curr.kpi.totalVisits }, datalabels: { color: '#fff', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { let sum = 0; let dataArr = ctx.chart.data.datasets[0].data; dataArr.map(data => { sum += data; }); return (value * 100 / sum).toFixed(1) + "%"; } } } });
 
-    // Chart C: Procedures (Horizontal Bar)
     let sortedProcs = Object.entries(curr.charts.procedures).sort((a,b) => b[1].revenue - a[1].revenue).slice(0, 10);
     drawChart('chartProcedures', 'bar', {
         labels: sortedProcs.map(p => p[0]),
-        datasets: [{
-            label: 'Revenue (RM)',
-            data: sortedProcs.map(p => p[1].revenue),
-            backgroundColor: '#007a7e'
-        }]
-    }, { 
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        plugins: {
-            datalabels: {
-                color: '#fff',
-                anchor: 'end',
-                align: 'start',
-                font: { weight: 'bold' },
-                formatter: (value) => { return value > 0 ? "RM " + value : ""; } 
-            }
-        }
-    });
+        datasets: [{ label: 'Revenue (RM)', data: sortedProcs.map(p => p[1].revenue), backgroundColor: '#007a7e' }]
+    }, { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', anchor: 'end', align: 'start', font: { weight: 'bold' }, formatter: (value) => { return value > 0 ? "RM " + value : ""; } } } });
 
-    // Chart D: Supervisor Workload (Bar - Allocated vs Actual in HOURS)
     const supLabels = Object.keys(curr.charts.supervisorTime);
     const timeFormatter = (value) => {
         if (!value || value === 0) return '';
-        let totalMins = Math.round(value * 60);
-        let hrs = Math.floor(totalMins / 60);
-        let mins = totalMins % 60;
+        let totalMins = Math.round(value * 60); let hrs = Math.floor(totalMins / 60); let mins = totalMins % 60;
         return (hrs > 0 ? hrs + 'h ' : '') + (mins > 0 ? mins + 'm' : (hrs > 0 ? '' : '0m'));
     };
-
     drawChart('chartSupervisor', 'bar', {
         labels: supLabels,
-        datasets: [{
-            label: 'Total Allocated Time',
-            data: supLabels.map(s => curr.charts.supervisorTime[s].allocated), 
-            backgroundColor: '#c5a065'
-        }, {
-            label: 'Total Actual Time',
-            data: supLabels.map(s => curr.charts.supervisorTime[s].actual),
-            backgroundColor: '#2c3e50'
-        }]
-    }, { 
-        responsive: true, maintainAspectRatio: false,
-        scales: {
-            y: { title: { display: true, text: 'Total Hours' } }
-        },
-        plugins: {
-            tooltip: {
-                callbacks: { label: function(context) { return context.dataset.label + ': ' + timeFormatter(context.raw); } }
-            },
-            datalabels: {
-                color: '#fff',
-                font: { size: 10, weight: 'bold' },
-                formatter: timeFormatter 
-            }
-        }
-    });
+        datasets: [
+            { label: 'Total Allocated Time', data: supLabels.map(s => curr.charts.supervisorTime[s].allocated), backgroundColor: '#c5a065' }, 
+            { label: 'Total Actual Time', data: supLabels.map(s => curr.charts.supervisorTime[s].actual), backgroundColor: '#2c3e50' }
+        ]
+    }, { responsive: true, maintainAspectRatio: false, scales: { y: { title: { display: true, text: 'Total Hours' } } }, plugins: { tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': ' + timeFormatter(context.raw); } } }, datalabels: { color: '#fff', font: { size: 10, weight: 'bold' }, formatter: timeFormatter } } });
 
-    // Chart E: No-Show Reasons (Horizontal Bar)
-    // Sort by highest count and slice to keep only the top 7 reasons
-    let sortedReasons = Object.entries(curr.charts.noShowReasons)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 7); 
-
-    // Truncate long sentences so they don't break the chart layout
-    let reasonLabels = sortedReasons.map(r => r[0].length > 35 ? r[0].substring(0, 35) + '...' : r[0]);
-
+    let sortedReasons = Object.entries(curr.charts.noShowReasons).sort((a,b) => b[1] - a[1]).slice(0, 7); 
     drawChart('chartNoShow', 'bar', {
-        labels: reasonLabels,
-        datasets: [{
-            label: 'Number of Patients',
-            data: sortedReasons.map(r => r[1]),
-            backgroundColor: '#dc3545' // Danger Red
-        }]
-    }, { 
-        indexAxis: 'y', 
-        responsive: true, 
-        maintainAspectRatio: false,
-        plugins: {
-            datalabels: {
-                color: '#fff',
-                font: { weight: 'bold' }
-            },
-            tooltip: {
-                callbacks: {
-                    // Show the FULL reason text when hovering over the bar
-                    title: function(context) { return sortedReasons[context[0].dataIndex][0]; }
-                }
-            }
-        }
-    });
+        labels: sortedReasons.map(r => r[0].length > 35 ? r[0].substring(0, 35) + '...' : r[0]),
+        datasets: [{ label: 'Number of Patients', data: sortedReasons.map(r => r[1]), backgroundColor: '#dc3545' }]
+    }, { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', font: { weight: 'bold' } }, tooltip: { callbacks: { title: function(context) { return sortedReasons[context[0].dataIndex][0]; } } } } });
 
-    // Chart F: Referral Sources (Doughnut)
     drawChart('chartReferrals', 'doughnut', {
         labels: Object.keys(curr.charts.referrals),
-        datasets: [{
-            data: Object.values(curr.charts.referrals),
-            backgroundColor: ['#007a7e', '#c5a065', '#2c3e50', '#e74c3c', '#fd7e14', '#6c757d']
-        }]
-    }, { 
-        responsive: true, maintainAspectRatio: false, 
-        plugins: { 
-            legend: { position: 'right' },
-            datalabels: {
-                color: '#fff',
-                font: { weight: 'bold', size: 12 },
-                formatter: (value, ctx) => {
-                    let sum = 0;
-                    ctx.chart.data.datasets[0].data.map(data => { sum += data; });
-                    return (value * 100 / sum).toFixed(1) + "%";
-                },
-                display: function(context) { return context.dataset.data[context.dataIndex] > 0; }
+        datasets: [{ data: Object.values(curr.charts.referrals), backgroundColor: ['#007a7e', '#c5a065', '#2c3e50', '#e74c3c', '#fd7e14', '#6c757d'] }]
+    }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, datalabels: { color: '#fff', font: { weight: 'bold', size: 12 }, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.map(data => { sum += data; }); return (value * 100 / sum).toFixed(1) + "%"; }, display: function(context) { return context.dataset.data[context.dataIndex] > 0; } } } });
+
+    // --- 3. RENDER COMPARISON CHARTS (Only if in Compare Mode) ---
+    let isCompareMode = !document.getElementById('filter-compare').classList.contains('d-none');
+    
+    if (isCompareMode) {
+        // Save to global memory for the Dropdown Toggle
+        window.popTrendData.curr = curr;
+        window.popTrendData.comp = comp;
+        
+        // 1. Draw the PoP Trend Line Chart!
+        updatePoPTrendChart();
+
+        // 2. Core KPIs
+        drawChart('chartCompareKPIs', 'bar', {
+            labels: ['Scheduled', 'Attended', 'No-Shows'],
+            datasets: [
+                { label: 'Period A (Current)', data: [curr.kpi.totalVisits, curr.kpi.attended, curr.kpi.noShows], backgroundColor: '#007a7e' },
+                { label: 'Period B (Previous)', data: [comp.kpi.totalVisits, comp.kpi.attended, comp.kpi.noShows], backgroundColor: '#c5a065' }
+            ]
+        }, { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', font: {weight: 'bold'} } } });
+
+        // 3. Finance
+        drawChart('chartCompareFinance', 'bar', {
+            labels: ['System Billed', 'Actual Collected'],
+            datasets: [
+                { label: 'Period A', data: [curr.kpi.revenueSystem, curr.kpi.revenueCollected], backgroundColor: '#198754' },
+                { label: 'Period B', data: [comp.kpi.revenueSystem, comp.kpi.revenueCollected], backgroundColor: '#6c757d' }
+            ]
+        }, { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value) => value > 0 ? 'RM ' + value : '' } } });
+
+        // 4. Case Type
+        let currNew = 0, currFollow = 0, compNew = 0, compFollow = 0;
+        Object.values(curr.charts.ageVsCase).forEach(val => { currNew += val.newCase; currFollow += val.followUp; });
+        Object.values(comp.charts.ageVsCase).forEach(val => { compNew += val.newCase; compFollow += val.followUp; });
+
+        drawChart('chartCompareCaseType', 'bar', {
+            labels: ['New Cases', 'Follow-ups'],
+            datasets: [
+                { label: 'Period A', data: [currNew, currFollow], backgroundColor: '#007a7e' },
+                { label: 'Period B', data: [compNew, compFollow], backgroundColor: '#c5a065' }
+            ]
+        }, { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', font: {weight: 'bold'} } } });
+
+        // 5. Top Procedures (Revenue)
+        let topProcsKeys = Object.entries(curr.charts.procedures).sort((a,b) => b[1].revenue - a[1].revenue).slice(0, 5).map(p => p[0]);
+        let currProcData = topProcsKeys.map(k => curr.charts.procedures[k] ? curr.charts.procedures[k].revenue : 0);
+        let compProcData = topProcsKeys.map(k => comp.charts.procedures[k] ? comp.charts.procedures[k].revenue : 0);
+
+        drawChart('chartCompareProcedures', 'bar', {
+            labels: topProcsKeys.map(k => k.length > 20 ? k.substring(0, 20) + '...' : k),
+            datasets: [
+                { label: 'Period A', data: currProcData, backgroundColor: '#0dcaf0' },
+                { label: 'Period B', data: compProcData, backgroundColor: '#adb5bd' }
+            ]
+        }, { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value) => value > 0 ? 'RM ' + value.toFixed(0) : '' }, tooltip: { callbacks: { label: function(context) { return context.dataset.label + ': RM ' + context.raw.toFixed(2); } } } } });
+    }
+}
+
+// --- POP LINE CHART LOGIC ---
+function updatePoPTrendChart() {
+    if (!window.popTrendData || !window.popTrendData.curr) return;
+    
+    let curr = window.popTrendData.curr;
+    let comp = window.popTrendData.comp;
+    let metric = document.getElementById('popTrendMetric').value;
+
+    let datesA = Object.keys(curr.charts.trend).sort((a, b) => new Date(a) - new Date(b));
+    let datesB = Object.keys(comp.charts.trend).sort((a, b) => new Date(a) - new Date(b));
+    
+    // We map them to "Day 1, Day 2" so the lines can physically overlap on the screen
+    let maxDays = Math.max(datesA.length, datesB.length);
+    let labels = Array.from({length: maxDays}, (_, i) => `Day ${i + 1}`);
+
+    const getMetric = (periodData, dateArr) => {
+        return dateArr.map(d => {
+            if (!periodData[d]) return null; // Using null prevents the line from dropping to 0 at the end!
+            if (metric === 'Scheduled') return periodData[d].attended + periodData[d].noShow + periodData[d].other;
+            if (metric === 'Attended') return periodData[d].attended;
+            if (metric === 'Absent') return periodData[d].noShow;
+            return null;
+        });
+    };
+
+    let dataA = getMetric(curr.charts.trend, datesA);
+    let dataB = getMetric(comp.charts.trend, datesB);
+
+    drawChart('chartCompareTrend', 'line', {
+        labels: labels,
+        datasets: [
+            {
+                label: `Period A (${metric})`,
+                data: dataA,
+                borderColor: '#007a7e',
+                backgroundColor: 'rgba(0, 122, 126, 0.1)',
+                fill: true,
+                tension: 0.3
+            },
+            {
+                label: `Period B (${metric})`,
+                data: dataB,
+                borderColor: '#c5a065',
+                backgroundColor: 'rgba(197, 160, 101, 0.1)',
+                fill: true,
+                tension: 0.3
             }
-        } 
+        ]
+    }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { 
+            datalabels: { display: false }, 
+            tooltip: { mode: 'index', intersect: false } 
+        },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
     });
+}
+
+// ==========================================
+// MISSING CENSUS AUDIT ENGINE
+// ==========================================
+function auditMissingCensuses() {
+    const btn = document.getElementById('btnAuditMissing');
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning...';
+    btn.disabled = true;
+
+    // Reset and show modal immediately so user sees it's working
+    document.getElementById('missing_census_body').innerHTML = '<tr><td colspan="5" class="text-center p-5 text-muted"><span class="spinner-border text-danger" style="width: 3rem; height: 3rem;"></span><h5 class="mt-3">Cross-referencing Calendar and Records...</h5></td></tr>';
+    new bootstrap.Modal(document.getElementById('missingCensusModal')).show();
+
+    google.script.run.withSuccessHandler(res => {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+
+        const tbody = document.getElementById('missing_census_body');
+        if (!res || res.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-5 text-center text-muted"><i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i><h4 class="mt-3 text-dark">All Clear!</h4><p>No missing or draft censuses found in the last 60 days.</p></td></tr>';
+        } else {
+            let html = '';
+            res.forEach(r => {
+                let attBadge = 'bg-secondary';
+                let att = (r.attStatus || 'Pending').toUpperCase();
+                if (att.includes('CHECK') || att.includes('CONFIRM')) attBadge = 'bg-success';
+                else if (att.includes('NO') || att.includes('CANCEL')) attBadge = 'bg-danger';
+
+                let statBadge = r.status === 'Missing' ? 'bg-danger' : 'bg-warning text-dark';
+                let statIcon = r.status === 'Missing' ? 'bi-x-circle-fill' : 'bi-pencil-square';
+
+                html += `<tr>
+                    <td class="fw-bold ps-3">${r.date}</td>
+                    <td>
+                        <div class="fw-bold text-primary">${r.name}</div>
+                        <div class="text-muted small">IC: ${r.ic}</div>
+                    </td>
+                    <td><span class="badge ${attBadge}">${r.attStatus || 'Pending'}</span></td>
+                    <td class="text-center"><span class="badge ${statBadge} shadow-sm"><i class="bi ${statIcon}"></i> ${r.status}</span></td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-primary shadow-sm fw-bold" onclick="bootstrap.Modal.getInstance(document.getElementById('missingCensusModal')).hide(); document.getElementById('inp_search').value='${r.ic}'; searchDB();">
+                            Resolve <i class="bi bi-arrow-right-short"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+    }).withFailureHandler(err => {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+        handleServerFailure(err);
+    }).getMissingCensuses();
 }
