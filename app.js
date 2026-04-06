@@ -4716,9 +4716,9 @@ function auditMissingCensuses() {
                     <td><span class="badge ${attBadge}">${r.attStatus || 'Pending'}</span></td>
                     <td class="text-center"><span class="badge ${statBadge} shadow-sm"><i class="bi ${statIcon}"></i> ${r.status}</span></td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-primary shadow-sm fw-bold" onclick="bootstrap.Modal.getInstance(document.getElementById('missingCensusModal')).hide(); document.getElementById('inp_search').value='${r.ic}'; searchDB();">
-                            Resolve <i class="bi bi-arrow-right-short"></i>
-                        </button>
+                        <button class="btn btn-sm btn-primary shadow-sm fw-bold" onclick="resolveMissingCensus('${r.ic}', '${r.date}')">
+        Resolve <i class="bi bi-arrow-right-short"></i>
+    </button>
                     </td>
                 </tr>`;
             });
@@ -4729,4 +4729,55 @@ function auditMissingCensuses() {
         btn.disabled = false;
         handleServerFailure(err);
     }).getMissingCensuses();
+}
+
+// --- JUMP DIRECTLY TO CENSUS FROM AUDIT MODAL ---
+function resolveMissingCensus(ic, dateStr) {
+    // 1. Hide the Audit Modal
+    const modalEl = document.getElementById('missingCensusModal');
+    if (modalEl) bootstrap.Modal.getInstance(modalEl).hide();
+    
+    document.body.style.cursor = 'wait';
+    showToast("Fetching patient records...", "info");
+
+    // 2. Fetch Patient Demographics from Database
+    google.script.run.withSuccessHandler(data => {
+        document.body.style.cursor = 'default';
+        
+        // Setup global state
+        if (data.found) {
+            currentPatientData = data;
+        } else {
+            currentPatientData = { ic: ic, name: '', contact: '', rn: '', email: '', address: '' };
+        }
+
+        // 3. Teleport to the Census Form (This resets previous forms cleanly)
+        window.isProceedingFromDashboard = true;
+        startNewPatient();
+        window.isProceedingFromDashboard = false;
+
+        // 4. INJECT THE MISSING DATA
+        const dateField = document.getElementById('inp_visitDate');
+        if (dateField) dateField.value = dateStr;
+
+        document.getElementById('inp_ic').value = ic;
+        
+        if (data.found) {
+            document.getElementById('inp_name').value = data.name || '';
+            document.getElementById('inp_rn').value = data.rn || '';
+            document.getElementById('inp_contact').value = data.contact || '';
+            document.getElementById('inp_email').value = data.email || '';
+            document.getElementById('inp_address').value = data.address || '';
+            document.getElementById('inp_ecName').value = data.ecName || '';
+            document.getElementById('inp_ecContact').value = data.ecContact || '';
+            document.getElementById('inp_ecRel').value = data.ecRel || '';
+            document.getElementById('inp_category').value = data.category || 'Standard';
+        }
+        
+        // Engage Security Locks (Students can't edit IC/Names)
+        applyDemographicLocks();
+
+        showToast("Census prepared for missing date: " + dateStr, "success");
+
+    }).withFailureHandler(handleServerFailure).getPatientDetails(ic);
 }
