@@ -468,6 +468,8 @@ function showPage(pageId) {
         const aDate = document.getElementById('apptGridDate');
         if (aDate && !aDate.value) aDate.valueAsDate = new Date();
         loadApptGrid();
+    } else if (pageId === 'room-approvals') { // <--- ADD THIS
+        loadRoomApprovals();
     }
 }
 
@@ -1110,10 +1112,12 @@ function startCensusFromIndex(index, targetSection = 1, attStatus = '') {
             
             // Restore HSP and Research Toggles
             let savedChargeStr = String(fullData.draftData.totalCharges || "");
-            if (document.getElementById('chk_hsp')) document.getElementById('chk_hsp').checked = savedChargeStr.includes('HSP');
+            let isHspChecked = (fullData.draftData.isHSP === 'Yes') || savedChargeStr.includes('HSP');
+            if (document.getElementById('chk_hsp')) document.getElementById('chk_hsp').checked = isHspChecked;
             if (document.getElementById('chk_research')) document.getElementById('chk_research').checked = savedChargeStr.includes('Research');
+
             // FIX 4: Explicitly calculate prices so it doesn't show RM 0.00
-            updatePrices(); 
+            updatePrices();
 
             document.querySelectorAll('.proc-check:checked').forEach(cb => {
                 if (parseFloat(cb.dataset.std) === -1) {
@@ -1335,10 +1339,12 @@ function proceedToCensus(overrideDate = null) {
         setChecks('proc-check', p.draftData.procedures);
         if (document.getElementById('chk_hsp')) document.getElementById('chk_hsp').checked = (fullData.draftData.isHSP === 'Yes');
         
-        // Restore HSP and Research Toggles
-            let savedChargeStr = String(fullData.draftData.totalCharges || "");
-            if (document.getElementById('chk_hsp')) document.getElementById('chk_hsp').checked = savedChargeStr.includes('HSP');
-            if (document.getElementById('chk_research')) document.getElementById('chk_research').checked = savedChargeStr.includes('Research');
+         // Restore HSP and Research Toggles
+        let savedChargeStr = String(p.draftData.totalCharges || "");
+        let isHspChecked = (p.draftData.isHSP === 'Yes') || savedChargeStr.includes('HSP');
+        if (document.getElementById('chk_hsp')) document.getElementById('chk_hsp').checked = isHspChecked;
+        if (document.getElementById('chk_research')) document.getElementById('chk_research').checked = savedChargeStr.includes('Research');
+
         // FIX 4: Explicitly update prices
         updatePrices(); 
 
@@ -1926,9 +1932,11 @@ function submitCensusV2(status) {
 
     // PROTECT CHARGES: Grab total, check if Counter already saved a protected value
     let rawCharge = document.getElementById('displayTotal')?.innerText || "0";
-    let finalCharges = rawCharge; // FIX: We no longer strip text, so "(Research)" gets saved!
-    
-    if (currentPatientData?.draftData?.totalCharges && parseFloat(currentPatientData.draftData.totalCharges) > 0) {
+    let finalCharges = rawCharge; 
+
+    // ONLY protect existing charges if this is a Counter Save (so we don't wipe out the clinician's bill)
+    // If it's Draft or Completed, ALWAYS use the active screen total!
+    if (status === 'CounterSave' && currentPatientData?.draftData?.totalCharges) {
         finalCharges = currentPatientData.draftData.totalCharges;
     }
 
@@ -2848,6 +2856,10 @@ function applyRBAC() {
     // ALWAYS show Rooms for EVERYONE (including Guests/Junior Students) so they can submit requests!
     const roomNavs = [document.getElementById('nav-rooms'), document.getElementById('nav-rooms-mob')];
     roomNavs.forEach(el => { if (el) el.style.display = 'block'; });
+
+    // 4.5 SIDEBAR: ROOM APPROVALS (ADMIN ONLY)
+    const approvalNavs = [document.getElementById('nav-room-approvals'), document.getElementById('nav-room-approvals-mob')];
+    approvalNavs.forEach(el => { if (el) el.style.display = isAdmin ? 'block' : 'none'; });
 
     // 5. CENSUS FORM: DEMOGRAPHICS LOCK (Section 1)
     // Students can view but cannot edit core patient identity data (unless registering a brand new walk-in).
@@ -4801,4 +4813,78 @@ function resolveMissingCensus(ic, dateStr) {
         }, 300);
 
     }).getPatientDetails(cleanIC);
+}
+
+// ==========================================
+// ADMIN ROOM APPROVALS ENGINE
+// ==========================================
+function loadRoomApprovals() {
+    const tbody = document.getElementById('room-approvals-body');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5"><div class="spinner-border text-warning"></div><br>Syncing Database...</td></tr>';
+
+    google.script.run.withSuccessHandler(data => {
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5 text-muted"><i class="bi bi-check-circle fs-2 d-block mb-2 text-success"></i> No room requests found.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        data.forEach(req => {
+            let badgeClass = 'bg-warning text-dark';
+            if (req.status === 'Approved') badgeClass = 'bg-success';
+            if (req.status === 'Declined' || req.status === 'Rejected') badgeClass = 'bg-danger';
+
+            html += `
+                <tr>
+                    <td class="ps-3 text-muted small">${req.timestamp}</td>
+                    <td>
+                        <div class="fw-bold text-dark">${req.applicant}</div>
+                        <div class="small text-muted"><i class="bi bi-telephone"></i> ${req.contact}</div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-primary">${req.room}</div>
+                        <div class="small text-muted">${req.date} | ${req.time} (${req.duration} mins)</div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border border-secondary mb-1">${req.purpose}</span>
+                    </td>
+                    <td class="text-center"><span class="badge ${badgeClass} shadow-sm" id="badge_${req.rowIdx}">${req.status || 'Pending'}</span></td>
+                    <td class="text-center">
+                        <div class="btn-group shadow-sm">
+                            <button class="btn btn-sm btn-outline-success fw-bold" onclick="updateAppStatus(${req.rowIdx}, 'Approved', this)"><i class="bi bi-check-lg"></i> Approve</button>
+                            <button class="btn btn-sm btn-outline-warning text-dark fw-bold" onclick="updateAppStatus(${req.rowIdx}, 'Pending', this)"><i class="bi bi-clock"></i> Pending</button>
+                            <button class="btn btn-sm btn-outline-danger fw-bold" onclick="updateAppStatus(${req.rowIdx}, 'Declined', this)"><i class="bi bi-x-lg"></i> Decline</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }).withFailureHandler(handleServerFailure).getRoomApprovalsData();
+}
+
+function updateAppStatus(rowIdx, newStatus, btnEl) {
+    const btnGroup = btnEl.parentElement;
+    const originalHtml = btnGroup.innerHTML;
+    btnGroup.innerHTML = `<button class="btn btn-sm btn-secondary disabled w-100"><span class="spinner-border spinner-border-sm"></span> Updating...</button>`;
+
+    google.script.run.withSuccessHandler(res => {
+        if (res.success) {
+            showToast(`Request marked as ${newStatus}!`, "success");
+            
+            // Visual instant update
+            const badge = document.getElementById(`badge_${rowIdx}`);
+            if (badge) {
+                badge.innerText = newStatus;
+                badge.className = `badge shadow-sm ${newStatus === 'Approved' ? 'bg-success' : (newStatus === 'Declined' ? 'bg-danger' : 'bg-warning text-dark')}`;
+            }
+            btnGroup.innerHTML = originalHtml; // Restore buttons
+        } else {
+            showToast("Update failed.", "error");
+            btnGroup.innerHTML = originalHtml;
+        }
+    }).withFailureHandler(err => {
+        handleServerFailure(err);
+        btnGroup.innerHTML = originalHtml;
+    }).updateRoomStatusFromApp(rowIdx, newStatus);
 }
