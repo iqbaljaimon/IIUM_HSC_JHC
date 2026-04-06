@@ -216,7 +216,7 @@
                 <a class="nav-link" id="nav-hsp-mob" onclick="showPage('hsp'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-person-bounding-box me-2"></i> HSP Database</a>
                 <a class="nav-link text-warning mt-3 border-top pt-3" id="nav-analytics-mob" style="cursor: pointer; display:none;" onclick="openAnalyticsDashboard(); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-bar-chart-fill me-2"></i> Analytics Dashboard</a>
 
-                <a class="nav-link text-warning" id="nav-hsp-analytics-mob" style="cursor: pointer; display:none;" onclick="showPage('hsp-analytics'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-graph-up me-2"></i> HSP Analytics</a>
+                <a class="nav-link text-warning" id="nav-hsp-analytics-mob" style="cursor: pointer; display:none;" href="https://script.google.com/macros/s/AKfycbweutwxRGyE1AFd0delcT9KEY0maJuEiM19y0MljfrtLVBNyladi7twsDdEaJvC4kkZAQ/exec" target="_blank" onclick="const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-graph-up me-2"></i> HSP Analytics <i class="bi bi-box-arrow-up-right ms-1 small"></i></a>
 
                 <a class="nav-link mt-4 text-danger fw-bold" onclick="performLogout()"><i class="bi bi-box-arrow-left me-2"></i> Logout</a>
             </nav>
@@ -242,9 +242,9 @@
                 <a class="nav-link text-warning mt-3 border-top pt-3" id="nav-analytics" style="cursor: pointer; display:none;" onclick="openAnalyticsDashboard()">
     <i class="bi bi-bar-chart-fill me-2"></i> Analytics Dashboard
 </a>
-                <a class="nav-link text-warning" id="nav-hsp-analytics" style="cursor: pointer; display:none;" onclick="showPage('hsp-analytics')">
-           <i class="bi bi-graph-up me-2"></i> HSP Analytics
-        </a>
+                <a class="nav-link text-warning" id="nav-hsp-analytics" style="cursor: pointer; display:none;" href="https://script.google.com/macros/s/AKfycbweutwxRGyE1AFd0delcT9KEY0maJuEiM19y0MljfrtLVBNyladi7twsDdEaJvC4kkZAQ/exec" target="_blank">
+    <i class="bi bi-graph-up me-2"></i> HSP Analytics <i class="bi bi-box-arrow-up-right ms-1 small"></i>
+</a>
               
                 <a class="nav-link mt-5 text-danger fw-bold" onclick="performLogout()"><i class="bi bi-box-arrow-left me-2"></i> Logout</a>
               </nav>
@@ -262,6 +262,7 @@
               <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
                 <h3 class="fw-bold text-dark mb-0">Daily Patient Queue</h3>
                 <div>
+                   <button class="btn btn-outline-danger me-2 shadow-sm fw-bold" id="btnAuditMissing" style="display:none;" onclick="auditMissingCensuses()"><i class="bi bi-shield-exclamation"></i> Missing Census</button>
                    <button class="btn btn-outline-secondary me-2" onclick="loadQueue()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                    <button class="btn btn-iium" onclick="startNewPatient()"><i class="bi bi-person-plus"></i> Register Patient</button>
                 </div>
@@ -313,12 +314,22 @@
         <h4 class="text-teal mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Analytic Dashboard</h4>
     </div>
 
+    <ul class="nav nav-pills nav-fill mb-3 bg-light shadow-sm rounded border p-1">
+        <li class="nav-item">
+            <a class="nav-link bg-iium text-white fw-bold shadow-sm" id="btn-tab-overview" href="#" onclick="toggleAnalyticsTab('overview'); return false;"><i class="bi bi-pie-chart-fill me-2"></i>Performance Overview</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link text-secondary fw-bold" id="btn-tab-compare" href="#" onclick="toggleAnalyticsTab('compare'); return false;"><i class="bi bi-bar-chart-steps me-2"></i>Period Comparison (PoP)</a>
+        </li>
+    </ul>
+
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-body bg-light rounded">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label text-muted small fw-bold">Quick Select</label>
-                    <select id="analyticsPreset" class="form-select" onchange="applyAnalyticsPreset()">
+            
+            <div id="filter-overview" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1">Preset</label>
+                    <select id="presetOverview" class="form-select form-select-sm shadow-sm" onchange="applyAnalyticsPreset('overview')">
                         <option value="custom">Custom...</option>
                         <option value="thisMonth">This Month</option>
                         <option value="lastMonth">Last Month</option>
@@ -326,118 +337,191 @@
                         <option value="thisYear">This Year</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label text-muted small fw-bold">Start Date</label>
-                    <input type="date" id="analyticsStart" class="form-control" onchange="document.getElementById('analyticsPreset').value='custom'">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1">Start Date</label>
+                    <input type="date" id="startOverview" class="form-control form-control-sm border-primary shadow-sm" onchange="document.getElementById('presetOverview').value='custom'">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label text-muted small fw-bold">End Date</label>
-                    <input type="date" id="analyticsEnd" class="form-control" onchange="document.getElementById('analyticsPreset').value='custom'">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1">End Date</label>
+                    <input type="date" id="endOverview" class="form-control form-control-sm border-primary shadow-sm" onchange="document.getElementById('presetOverview').value='custom'">
                 </div>
-                <div class="col-md-4">
-                    <div class="form-check mt-2">
-                        <input class="form-check-input" type="checkbox" id="analyticsCompare" checked>
-                        <label class="form-check-label text-muted fw-bold" for="analyticsCompare">
-                            Compare to previous period
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-2 text-end">
-                    <button class="btn btn-teal w-100" onclick="loadAdvancedAnalytics()">
-                        <i class="bi bi-arrow-repeat me-1"></i> Generate
+                <div class="col-md-3 text-end">
+                    <button class="btn btn-teal btn-sm w-100 fw-bold shadow-sm py-2" onclick="loadAdvancedAnalytics()">
+                        <i class="bi bi-bar-chart-line-fill me-1"></i> Generate Overview
                     </button>
                 </div>
             </div>
+
+            <div id="filter-compare" class="row g-2 align-items-end d-none">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-bold mb-1">Preset</label>
+                    <select id="presetCompare" class="form-select form-select-sm shadow-sm" onchange="applyAnalyticsPreset('compare')">
+                        <option value="custom">Custom...</option>
+                        <option value="thisMonth">This Month</option>
+                        <option value="lastMonth">Last Month</option>
+                        <option value="thisQuarter">This Quarter</option>
+                        <option value="thisYear">This Year</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-primary small fw-bold mb-1">Period A (Current)</label>
+                    <div class="input-group input-group-sm shadow-sm">
+                        <input type="date" id="startA" class="form-control border-primary" onchange="document.getElementById('presetCompare').value='custom'">
+                        <span class="input-group-text bg-light text-muted px-1">to</span>
+                        <input type="date" id="endA" class="form-control border-primary" onchange="document.getElementById('presetCompare').value='custom'">
+                    </div>
+                </div>
+                <div class="col-md-1 d-flex align-items-center justify-content-center">
+                    <label class="text-muted small fw-bold mt-4 pt-1">Vs.</label>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-secondary small fw-bold mb-1">Period B (Previous)</label>
+                    <div class="input-group input-group-sm shadow-sm">
+                        <input type="date" id="startB" class="form-control border-secondary" onchange="document.getElementById('presetCompare').value='custom'">
+                        <span class="input-group-text bg-light text-muted px-1">to</span>
+                        <input type="date" id="endB" class="form-control border-secondary" onchange="document.getElementById('presetCompare').value='custom'">
+                    </div>
+                </div>
+                <div class="col-md-3 text-end">
+                    <button class="btn btn-iium btn-sm w-100 fw-bold shadow-sm py-2" onclick="loadAdvancedAnalytics()">
+                        <i class="bi bi-bar-chart-steps me-1"></i> Generate Comparison
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body">
-            <h6 class="text-muted mb-1">Total Scheduled</h6>
-            <h3 class="mb-0 text-dark" id="kpiVisits">-</h3>
-            <small id="popVisits" class="text-muted">vs previous period</small>
-        </div></div></div>
-        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body">
-            <h6 class="text-muted mb-1">Attendance Rate</h6>
-            <h3 class="mb-0 text-dark" id="kpiAttRate">-</h3>
-            <small id="popAttRate" class="text-muted">vs previous period</small>
-        </div></div></div>
-        <div class="col-md-3"><div class="card shadow-sm border-0 h-100"><div class="card-body">
-            <h6 class="text-muted mb-1">Total Collected</h6>
-            <h3 class="mb-0 text-success" id="kpiRevenueCollected">-</h3>
-            <div class="small fw-bold text-muted mt-1" id="kpiRevenueSystem">Billed: RM 0.00</div>
-            <small id="popRevenue" class="text-muted">vs previous period</small>
-        </div></div></div>
-        <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body">
-            <h6 class="text-muted mb-1">Top Procedure</h6>
-            <h5 class="mb-0 text-primary text-truncate" id="kpiTopProc" title="-">-</h5>
-            <small id="popTopProc" class="text-muted">Most frequently performed</small>
-        </div></div></div>
-    </div>
+    <div id="analytics-overview-view">
+        <div class="row g-3 mb-4">
+            <div class="col-md-3"><div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted mb-1">Total Scheduled</h6>
+                <h3 class="mb-0 text-dark" id="kpiVisits">-</h3>
+            </div></div></div>
+            <div class="col-md-3"><div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted mb-1">Attendance Rate</h6>
+                <h3 class="mb-0 text-dark" id="kpiAttRate">-</h3>
+            </div></div></div>
+            <div class="col-md-3"><div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted mb-1">Total Collected</h6>
+                <h3 class="mb-0 text-success" id="kpiRevenueCollected">-</h3>
+                <div class="small fw-bold text-muted mt-1" id="kpiRevenueSystem">Billed: RM 0.00</div>
+            </div></div></div>
+            <div class="col-md-3"><div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="text-muted mb-1">Top Procedure</h6>
+                <h5 class="mb-0 text-primary text-truncate" id="kpiTopProc" title="-">-</h5>
+            </div></div></div>
+        </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-8">
-            <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                <h6 class="text-muted fw-bold mb-3">
-    Attendance Breakdown (New-Case vs Follow-up)
-    <span id="lblTotalAttended" class="badge bg-teal ms-2 rounded-pill" style="background-color: #007a7e;">0</span>
-</h6>
-<div style="position: relative; height: 300px; width: 100%;">
-    <canvas id="chartCaseType"></canvas>
-</div>
-            </div></div>
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted fw-bold mb-3"><i class="bi bi-graph-up text-primary me-2"></i>Visit Trends Over Time</h6>
+                    <div style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="chartTrend"></canvas>
+                    </div>
+                </div></div>
+            </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                <h6 class="text-muted fw-bold mb-3">Patient Demographics</h6>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="chartDemo"></canvas>
-                </div>
-            </div></div>
-        </div>
-    </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                <h6 class="text-muted fw-bold mb-3">Top Procedures (Revenue)</h6>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="chartProcedures"></canvas>
-                </div>
-            </div></div>
+        <div class="row g-3 mb-4">
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted fw-bold mb-3">Attendance Breakdown <span id="lblTotalAttended" class="badge bg-teal ms-2 rounded-pill" style="background-color: #007a7e;">0</span></h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartCaseType"></canvas></div>
+                </div></div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted fw-bold mb-3">Patient Demographics</h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartDemo"></canvas></div>
+                </div></div>
+            </div>
         </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                <h6 class="text-muted fw-bold mb-3"><i class="bi bi-diagram-3-fill me-2"></i>Patient Referral Sources</h6>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="chartReferrals"></canvas>
-                </div>
-            </div></div>
-        </div>
-    </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                <h6 class="text-danger fw-bold mb-3">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Top Reasons for Non-Attendance
-                    <span id="lblTotalNoShows" class="badge bg-danger ms-2 rounded-pill">0</span>
-                </h6>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="chartNoShow"></canvas>
-                </div>
-            </div></div>
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted fw-bold mb-3">Top Procedures (Revenue)</h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartProcedures"></canvas></div>
+                </div></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted fw-bold mb-3"><i class="bi bi-diagram-3-fill me-2"></i>Patient Referral Sources</h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartReferrals"></canvas></div>
+                </div></div>
+            </div>
         </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0 h-100"><div class="card-body">
-                <h6 class="text-muted fw-bold mb-3">Supervisor Workload (Total Hours)</h6>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="chartSupervisor"></canvas>
-                </div>
-            </div></div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-danger fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Top Reasons for Non-Attendance <span id="lblTotalNoShows" class="badge bg-danger ms-2 rounded-pill">0</span></h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartNoShow"></canvas></div>
+                </div></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-muted fw-bold mb-3">Supervisor Workload (Total Hours)</h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartSupervisor"></canvas></div>
+                </div></div>
+            </div>
         </div>
-    </div>
-</div>
+    </div> 
+    
+    <div id="analytics-compare-view" class="d-none">
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0 h-100 border-start border-4 border-iium"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h6 class="text-iium fw-bold mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Trend Comparison (Period A vs B)</h6>
+                        <div class="input-group input-group-sm w-auto shadow-sm">
+                            <span class="input-group-text bg-white fw-bold border-primary">Metric:</span>
+                            <select id="popTrendMetric" class="form-select border-primary text-primary fw-bold" onchange="updatePoPTrendChart()">
+                                <option value="Scheduled">Total Scheduled</option>
+                                <option value="Attended">Attended Only</option>
+                                <option value="Absent">Absent / No-Show</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="chartCompareTrend"></canvas>
+                    </div>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-iium fw-bold mb-3"><i class="bi bi-people-fill me-2"></i>Core Metrics Comparison</h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartCompareKPIs"></canvas></div>
+                </div></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-success fw-bold mb-3"><i class="bi bi-cash-stack me-2"></i>Financial Comparison (RM)</h6>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="chartCompareFinance"></canvas></div>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="fw-bold mb-3" style="color: #c5a065 !important;"><i class="bi bi-person-lines-fill me-2"></i>New vs Follow-up Cases</h6>
+                    <div style="position: relative; height: 350px; width: 100%;"><canvas id="chartCompareCaseType"></canvas></div>
+                </div></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="text-primary fw-bold mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Top 5 Procedures (Revenue Contribution)</h6>
+                    <div style="position: relative; height: 350px; width: 100%;"><canvas id="chartCompareProcedures"></canvas></div>
+                </div></div>
+            </div>
+        </div>
+    </div> </div>
 
             <div id="patient-dashboard" class="page-view">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
@@ -900,68 +984,7 @@
               <div id="case-search-results" class="row g-3"></div>
             </div> 
            
-          <div id="page-hsp-analytics" class="page-view d-none">
-              <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
-                <h3 class="fw-bold text-iium mb-0"><i class="bi bi-bar-chart-steps me-2"></i>HSP Advanced Analytics</h3>
-              </div>
-              
-              <div class="card shadow-sm border-0 mb-4 bg-light p-3">
-                  <div class="row g-3 align-items-end">
-                      <div class="col-md-3">
-                          <label class="small fw-bold">Semester</label>
-                          <select id="stat_sem" class="form-select shadow-sm"><option value="">All Semesters</option></select>
-                      </div>
-                      <div class="col-md-3">
-                          <label class="small fw-bold">Location</label>
-                          <select id="stat_loc" class="form-select shadow-sm"><option value="">All Locations</option></select>
-                      </div>
-                      <div class="col-md-4">
-                          <label class="small fw-bold">Venue</label>
-                          <select id="stat_ven" class="form-select shadow-sm"><option value="">All Venues</option></select>
-                      </div>
-                      <div class="col-md-2">
-                          <button class="btn btn-primary w-100 shadow-sm" onclick="triggerStatsFetch()"><i class="bi bi-funnel-fill"></i> Analyze</button>
-                      </div>
-                      
-                      <div class="col-md-12 mt-2 pt-3 border-top d-flex flex-wrap align-items-center gap-3">
-                          <div class="form-check form-switch">
-                              <input class="form-check-input" type="checkbox" id="stat_use_date" onchange="document.getElementById('stat_date_box').classList.toggle('d-none')">
-                              <label class="form-check-label small fw-bold">Enable Date Filter</label>
-                          </div>
-                          <div id="stat_date_box" class="d-none d-flex gap-2 align-items-center">
-                              <input type="date" id="stat_start" class="form-control form-control-sm w-auto"> 
-                              <span class="small fw-bold text-muted">to</span> 
-                              <input type="date" id="stat_end" class="form-control form-control-sm w-auto">
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div class="row g-3 mb-4" id="stat_cards_container">
-                  <div class="col-12 text-center p-4 text-muted"><span class="spinner-border spinner-border-sm"></span> Initializing Analytics Engine...</div>
-              </div>
-
-              <div class="card shadow-sm border-0">
-                  <div class="card-header bg-white fw-bold text-secondary py-3"><i class="bi bi-clipboard2-pulse"></i> Screening Sub-Test Diagnostics</div>
-                  <div class="card-body p-0 table-responsive">
-                      <table class="table table-hover text-center align-middle mb-0" style="font-size: 0.9rem;">
-                          <thead class="bg-light">
-                              <tr>
-                                  <th class="text-start ps-4">Test Component</th>
-                                  <th>Passed</th>
-                                  <th>Referred / Failed</th>
-                                  <th>Refer Rate</th>
-                              </tr>
-                          </thead>
-                          <tbody id="stat_test_body">
-                              <tr><td colspan="4" class="p-3">Pending analysis...</td></tr>
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-            </div>
-
-           <div id="page-hsp" class="page-view d-none">
+         <div id="page-hsp" class="page-view d-none">
           <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
             <h3 class="fw-bold text-iium mb-0"><i class="bi bi-person-bounding-box me-2"></i>HSP Call List & Database</h3>
             <button class="btn btn-outline-secondary btn-sm shadow-sm" onclick="loadHSPDashboard()"><i class="bi bi-arrow-clockwise"></i> Refresh Data</button>
@@ -1482,22 +1505,28 @@
         </div>
     </div>
 
-    <div class="modal fade" id="hspDrilldownModal" tabindex="-1">
+    <div class="modal fade" id="missingCensusModal" tabindex="-1">
       <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow">
-          <div class="modal-header bg-dark text-white border-0">
-            <h5 class="modal-title fw-bold" id="drilldownTitle">Case Summary</h5>
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header bg-danger text-white border-0">
+            <h5 class="modal-title fw-bold"><i class="bi bi-shield-exclamation"></i> Missing Census Audit (Past 60 Days)</h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body p-0 table-responsive bg-light">
-            <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
-                <thead class="bg-white text-secondary sticky-top shadow-sm">
-                    <tr id="drilldownHeaders">
-                        </tr>
-                </thead>
-                <tbody id="drilldownBody">
-                    </tbody>
-            </table>
+          <div class="modal-body bg-light p-0 table-responsive">
+             <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                 <thead class="bg-white sticky-top shadow-sm text-secondary">
+                     <tr>
+                         <th class="ps-3">Scheduled Date</th>
+                         <th>Patient Name</th>
+                         <th>Attendance</th>
+                         <th class="text-center">Census State</th>
+                         <th class="text-center">Action</th>
+                     </tr>
+                 </thead>
+                 <tbody id="missing_census_body">
+                     <tr><td colspan="5" class="text-center p-4 text-muted"><span class="spinner-border spinner-border-sm text-danger"></span> Scanning databases...</td></tr>
+                 </tbody>
+             </table>
           </div>
         </div>
       </div>
