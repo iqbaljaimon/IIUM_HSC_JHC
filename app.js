@@ -2842,15 +2842,13 @@ function applyRBAC() {
     const apptNavs = [document.getElementById('nav-appointments'), document.getElementById('nav-appointments-mob')];
     apptNavs.forEach(el => { if (el) el.style.display = isStaffOrAdmin ? 'block' : 'none'; });
 
-    // 2. SIDEBAR: MAIN ANALYTICS
-    // ONLY Admins can see financial and clinic volume analytics
+    // 2. SIDEBAR: MAIN ANALYTICS (ADMIN ONLY)
     const analyticsNavs = [document.getElementById('nav-analytics'), document.getElementById('nav-analytics-mob')];
     analyticsNavs.forEach(el => { if (el) el.style.display = isAdmin ? 'block' : 'none'; });
 
-    // 3. SIDEBAR: HSP REFERRAL DATABASE
-    // Staff/Clinicians AND Admins need to see this to call patients. Students cannot.
-    const hspNavs = [document.getElementById('nav-hsp-analytics'), document.getElementById('nav-hsp-analytics-mob')];
-    hspNavs.forEach(el => { if (el) el.style.display = isStaffOrAdmin ? 'block' : 'none'; });
+    // 3. SIDEBAR: HSP ANALYTICS (ADMIN ONLY)
+    const hspAnalyticsNavs = [document.getElementById('nav-hsp-analytics'), document.getElementById('nav-hsp-analytics-mob')];
+    hspAnalyticsNavs.forEach(el => { if (el) el.style.display = isAdmin ? 'block' : 'none'; });
 
     // 4. SIDEBAR: INTERNAL ROOMS
     // ALWAYS show Rooms for EVERYONE (including Guests/Junior Students) so they can submit requests!
@@ -2861,7 +2859,11 @@ function applyRBAC() {
     const approvalNavs = [document.getElementById('nav-room-approvals'), document.getElementById('nav-room-approvals-mob')];
     approvalNavs.forEach(el => { if (el) el.style.display = isAdmin ? 'block' : 'none'; });
 
-    // 5. CENSUS FORM: DEMOGRAPHICS LOCK (Section 1)
+    // 5. SIDEBAR: MASTER DATABASE (ADMIN ONLY)
+    const dbNavs = [document.getElementById('nav-database'), document.getElementById('nav-database-mob')];
+    dbNavs.forEach(el => { if (el) el.style.display = isAdmin ? 'block' : 'none'; });
+
+    // 6. CENSUS FORM: DEMOGRAPHICS LOCK (Section 1)
     // Students can view but cannot edit core patient identity data (unless registering a brand new walk-in).
     const sec1Inputs = ['inp_ic', 'inp_name', 'inp_contact', 'inp_email', 'inp_address', 'inp_ecName', 'inp_ecContact', 'inp_ecRel'];
     
@@ -2883,7 +2885,7 @@ function applyRBAC() {
         savePatBtn.style.display = isStudent ? 'none' : 'inline-block';
     }
 
-    // 6. AUDIT BUTTON
+    // 7. AUDIT BUTTON
     const auditBtn = document.getElementById('btnAuditMissing');
     if (auditBtn) auditBtn.style.display = isAdmin ? 'inline-block' : 'none';
 }
