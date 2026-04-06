@@ -212,6 +212,7 @@
                 <a class="nav-link" onclick="startNewPatient(); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-clipboard-plus me-2"></i> New Census</a>
                 <a class="nav-link" id="nav-appointments-mob" onclick="showPage('appointments'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-calendar-week me-2"></i> Appointments</a>
                 <a class="nav-link" id="nav-rooms-mob" onclick="showPage('rooms'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-door-open me-2"></i> Rooms Booking</a>
+                <a class="nav-link text-warning fw-bold" id="nav-room-approvals" style="display:none;" onclick="showPage('room-approvals')"><i class="bi bi-ui-checks me-2"></i> Room Approvals</a>
                 <a class="nav-link" onclick="showPage('case-search'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-search-heart me-2"></i> Case Search</a>
                 <a class="nav-link" id="nav-hsp-mob" onclick="showPage('hsp'); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-person-bounding-box me-2"></i> HSP Database</a>
                 <a class="nav-link text-warning mt-3 border-top pt-3" id="nav-analytics-mob" style="cursor: pointer; display:none;" onclick="openAnalyticsDashboard(); const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')); bsOffcanvas.hide();"><i class="bi bi-bar-chart-fill me-2"></i> Analytics Dashboard</a>
@@ -236,6 +237,7 @@
                 <a class="nav-link" id="nav-census" onclick="startNewPatient()"><i class="bi bi-clipboard-plus me-2"></i> New Census</a>
                 <a class="nav-link" id="nav-appointments" onclick="showPage('appointments')"><i class="bi bi-calendar-week me-2"></i> Appointments</a>
                 <a class="nav-link" id="nav-rooms" onclick="showPage('rooms')"><i class="bi bi-door-open me-2"></i> Rooms Booking</a>
+                <a class="nav-link text-warning fw-bold" id="nav-room-approvals" style="display:none;" onclick="showPage('room-approvals')"><i class="bi bi-ui-checks me-2"></i> Room Approvals</a>
                 <a class="nav-link" id="nav-casesearch" onclick="showPage('case-search')"><i class="bi bi-search-heart me-2"></i> Case Search</a>
                 <a class="nav-link" id="nav-hsp" onclick="showPage('hsp')"><i class="bi bi-person-bounding-box me-2"></i> HSP Database</a>
                 
@@ -1058,6 +1060,33 @@
                  <span class="badge bg-warning text-dark opacity-75 ms-3">Pending</span> Approval In-Progress
               </div>
               
+            </div>
+
+    <div id="page-room-approvals" class="page-view d-none">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 border-bottom pb-3 gap-3">
+                <h4 class="text-warning fw-bold mb-0"><i class="bi bi-ui-checks"></i> Room Approvals Management</h4>
+                <button class="btn btn-warning fw-bold shadow-sm" onclick="loadRoomApprovals()"><i class="bi bi-arrow-clockwise"></i> Refresh List</button>
+              </div>
+
+              <div class="card border-0 shadow-sm">
+                <div class="card-body p-0 table-responsive">
+                  <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem; min-width: 900px;">
+                    <thead class="bg-light text-secondary">
+                      <tr>
+                        <th class="ps-3">Submitted On</th>
+                        <th>Applicant Details</th>
+                        <th>Room & Timing</th>
+                        <th>Purpose</th>
+                        <th class="text-center">Current Status</th>
+                        <th class="text-center" style="width: 280px;">Manager Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="room-approvals-body">
+                      <tr><td colspan="6" class="text-center p-5"><div class="spinner-border text-warning"></div><br>Loading requests...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
 
     <div class="modal fade" id="statusModal" tabindex="-1">
